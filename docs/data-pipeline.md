@@ -132,6 +132,69 @@ Coarse-grid cells are `[col, row, count]` with col/row in 0..23 (cell size 1/24 
 teams stay sparse: Cloud9 (`79`) defender has 11 OP kills on Haven → 0 killer / 1 victim cell, 17 on Pearl →
 1 killer / 0 victim cell; a 12×12 grid would give only 1–3 cells, so the limit is sample size, not resolution.
 
+## Scouting reports (week 5, `report` command)
+
+`report.py` turns the published aggregates into a pre-generated scouting report per team. The model never sees
+Parquet or GRID rows, only a fact sheet built from `web/public/data/teams/<id>.json`.
+
+1. **Fact sheet** (deterministic, ≤ 150 facts, `fact_id → {label, value, unit, map, side, phase}`). Units:
+   `pct` (fraction, 3 decimals like the team JSON, shown as a whole %), `rate` (2 decimals), `count`, `seconds`
+   (round clock; 0 = barrier drop, negative = buy phase). Contents: games and map pool (games, wins and round
+   win rate only for maps with ≥ 3 games); Operator profile (team OP kill share and first-kill share, top 2 non-low-
+   sample OP players with their top 3 map/side splits, top 4 team map/side splits); the 6 largest utility gaps
+   versus the reference team (Cloud9; Cloud9 GC for Cloud9), using the Compare tab normalisation (casts /
+   `rounds_played`, maps with ≥ 3 games for both teams, gap ≥ 0.05, ≥ 5 casts, buy phase excluded because it
+   mostly reflects agent picks); utility signatures for the 3 most-played maps (top 3 abilities per side by casts
+   per round, each at its highest-rate phase, with the share and mean clock of the most-used caster spot when
+   that spot has ≥ 5 casts).
+   Map/side/phase keys match the team JSON and dashboard URL (`attacker`/`defender`, `opening`, …). Low-sample
+   entries are left out, and `op_lost_to_enemy` (always 0) is never used. Spots are caster positions, not where
+   the utility landed; the prompt says so.
+2. **Model call:** one request per team with structured output (JSON schema), English, analyst tone. Every
+   claim and counter must cite `fact_ids` and may only use the displayed fact values (no derived sums, ratios
+   or "x times").
+3. **Validator** (`VALIDATOR_VERSION` 2): extracts the numbers written in a claim (percent incl. `N percent`,
+   decimal, integer, `m:ss`). Each must match a cited fact: pct ±0.5 points, rate ±0.01, seconds ±0.5, counts
+   exact. Always rejected: multipliers (`3x`, `3×`, `x3`, `×3`) and number words (`one`…`twenty`, tens,
+   `hundred`, `thousand`, `twice`, `thrice`, `half`, `third(s)`, `quarter(s)`, `double`, `triple`, `dozen`,
+   `percent` without a digit) — conservative, they cannot be checked. Allowed: ordinals (`1st`), digits inside
+   names, `round 1`/`round 13`, `top 1–3`, the phase windows (`0–15 s`, `15–45 s`, `45 s+`) and the non-numeric
+   phrases `one-way`, `no one`, `one another`. Unknown `fact_ids` reject the claim. The headline cites no facts,
+   so it must contain no number at all (the team's own name is ignored). Failing claims and a failing headline
+   get one retry with their error list; claims still failing are dropped and listed in `validation.dropped`; a
+   headline still failing is replaced by a fixed number-free sentence and also listed there (reason
+   `headline: …`; `claims_dropped` counts claims only). Section titles are fixed (`Utility signature`, …), not
+   taken from the model.
+   **Limits:** the validator checks *numbers*, not meaning. Directional or qualitative statements without a
+   number ("more aggressive than", "rarely", "prefers B") and the link between a number and its wording (e.g.
+   attributing a Defense fact to Attack, or "high" for a low value) are not verified; they are only constrained
+   by the cited `fact_ids` (embedded in the report with their values, for manual review).
+4. **Output:** `web/public/data/reports/<team_id>.json` (`version, team_id, team_name, generated_at, model,
+   provider, games, headline, sections[{id, title, claims[{text, fact_ids, map, side, phase, tab}]}], counters,
+   reference_team_id, facts, validation`) and `reports/index.json` (`[{team_id, team_name, generated_at,
+   claims_kept}]`). Git-ignored with the rest of `web/public/data/`.
+5. **Cache:** `data/reports/<id>.cache.json` keyed by sha256(fact sheet + `PROMPT_VERSION` + hash of
+   `SYSTEM_PROMPT`, `OUTPUT_SPEC` and the JSON schemas + `VALIDATOR_VERSION` + model + team name and last
+   tournament). An unchanged key skips the LLM call (`--force` overrides) only if the cached report still passes
+   `check_report` and its facts equal the rebuilt fact sheet; otherwise it is regenerated. `--dry-run` writes
+   `<id>.facts.json` and `<id>.prompt.txt` there without calling any model. `--check` re-runs the validator on
+   written reports, rebuilds the fact sheet from the current aggregates and reports `stale facts` if it differs,
+   and exits 1 on any problem.
+6. **Failures:** each team runs in its own try/except (CLI timeout, API errors, anything else): the error is
+   printed (type + message, never the key), the batch continues, `reports/index.json` is written in `finally`,
+   and the command exits non-zero naming the failed teams.
+
+**Providers:** `ANTHROPIC_API_KEY` set → Anthropic API via the `anthropic` SDK (`anthropic-api`). Otherwise the
+Claude Code CLI (`claude -p --output-format json --json-schema … --tools "" --strict-mcp-config
+--disable-slash-commands --no-session-persistence`, prompt on stdin, run from an empty temp directory so no
+project `CLAUDE.md`/settings are picked up; `--bare` is not used because it disables the OAuth login; `claude-cli`).
+Neither → error. Model `claude-sonnet-5-5`, override with `UF_REPORT_MODEL`. `MAX_TOKENS` 8000 per call.
+
+**Cost (after the review fixes, 2 teams, API):** Cloud9 11,019 input / 5,749 output tokens (1 call), Cloud9 GC
+20,593 / 6,102 (2 calls: one retry, all claims fixed). **First run:** Cloud9 10,798 input / 5,622 output tokens, Cloud9 GC 10,645 / 5,950; one
+call each, no retries (≈ 11 k in / 6 k out per team; multiply by the current Sonnet price for $). 20 teams ≈
+215 k input / 120 k output tokens, plus retries.
+
 ## Licensing
 
 GRID data and every derived file (Parquet, JSON aggregates, PoC images) stay local: `data/`, `web/public/data/`

@@ -238,3 +238,71 @@ export interface TeamFile {
   generated_at: string;
   definitions: Definitions;
 }
+
+/*
+ * Scouting reports written by `utility_fingerprint_etl report` (Claude, checked against the aggregates):
+ * `web/public/data/reports/<team_id>.json` and `reports/index.json`. Only some teams have one.
+ */
+
+export type ReportUnit = "pct" | "count" | "rate" | "seconds";
+/**
+ * The ETL writes attacker/defender (same as the URL and team files); the original spec said
+ * attack/defense, so the parser (`reportSide`) accepts both.
+ */
+export type ReportSide = "attack" | "defense" | Side;
+export type ReportTab = "map" | "operator" | "compare";
+
+export interface ReportFact {
+  label: string;
+  value: number;
+  unit: ReportUnit;
+  map?: string | null;
+  side?: ReportSide | null;
+  phase?: string | null;
+}
+
+export interface ReportClaim {
+  text: string;
+  fact_ids: string[];
+  map: string | null;
+  side: ReportSide | null;
+  phase: string | null;
+  tab: ReportTab;
+}
+
+export interface ReportSection {
+  id: string;
+  title: string;
+  claims: ReportClaim[];
+}
+
+export interface ReportValidation {
+  claims_total: number;
+  claims_kept: number;
+  claims_dropped: number;
+  retries: number;
+  dropped: { text: string; reason: string }[];
+}
+
+export interface TeamReport {
+  version: number;
+  team_id: number | string;
+  team_name: string;
+  generated_at: string;
+  model: string;
+  provider: "anthropic-api" | "claude-cli" | string;
+  games: number;
+  headline: string;
+  sections: ReportSection[];
+  counters: ReportClaim[];
+  reference_team_id: number | string | null;
+  facts: Record<string, ReportFact>;
+  validation: ReportValidation;
+}
+
+export interface ReportIndexEntry {
+  team_id: number | string;
+  team_name: string;
+  generated_at: string;
+  claims_kept: number;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronsUpDownIcon } from "lucide-react";
+import { ChevronsUpDownIcon, FileTextIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +26,21 @@ interface TeamPickerProps {
   id?: string;
   /** Team hidden from the list (e.g. the other side of a comparison). */
   exclude?: string;
+  /** Teams flagged with a "has a scouting report" icon. */
+  marked?: ReadonlySet<string>;
 }
 
-function TeamItem({ team, selected, onSelect }: { team: TeamSummary; selected: boolean; onSelect: () => void }) {
+function TeamItem({
+  team,
+  selected,
+  marked,
+  onSelect,
+}: {
+  team: TeamSummary;
+  selected: boolean;
+  marked: boolean;
+  onSelect: () => void;
+}) {
   return (
     <CommandItem
       value={`${team.name} ${team.id}`}
@@ -37,7 +49,15 @@ function TeamItem({ team, selected, onSelect }: { team: TeamSummary; selected: b
       className="gap-2"
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate">{team.name}</span>
+        <span className="flex items-center gap-1.5 truncate">
+          <span className="truncate">{team.name}</span>
+          {marked && (
+            <>
+              <FileTextIcon aria-hidden className="size-3 shrink-0 text-primary" />
+              <span className="sr-only">(has a scouting report)</span>
+            </>
+          )}
+        </span>
         <span className="block truncate text-xs text-muted-foreground">{team.last_tournament}</span>
       </span>
       <span className="font-mono text-xs tabular-nums text-muted-foreground">{team.games}</span>
@@ -45,7 +65,7 @@ function TeamItem({ team, selected, onSelect }: { team: TeamSummary; selected: b
   );
 }
 
-export function TeamPicker({ teams, value, onChange, id, exclude }: TeamPickerProps) {
+export function TeamPicker({ teams, value, onChange, id, exclude, marked }: TeamPickerProps) {
   const [open, setOpen] = useState(false);
   const current = teams.find((t) => t.id === value);
   const featured = FEATURED_TEAM_IDS.map((fid) => teams.find((t) => t.id === fid)).filter(
@@ -88,13 +108,13 @@ export function TeamPicker({ teams, value, onChange, id, exclude }: TeamPickerPr
             <CommandEmpty>No team found.</CommandEmpty>
             <CommandGroup heading="Featured">
               {featured.map((t) => (
-                <TeamItem key={t.id} team={t} selected={t.id === value} onSelect={() => pick(t.id)} />
+                <TeamItem key={t.id} team={t} selected={t.id === value} marked={!!marked?.has(t.id)} onSelect={() => pick(t.id)} />
               ))}
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading="All teams (≥ 5 games)">
               {rest.map((t) => (
-                <TeamItem key={t.id} team={t} selected={t.id === value} onSelect={() => pick(t.id)} />
+                <TeamItem key={t.id} team={t} selected={t.id === value} marked={!!marked?.has(t.id)} onSelect={() => pick(t.id)} />
               ))}
             </CommandGroup>
           </CommandList>

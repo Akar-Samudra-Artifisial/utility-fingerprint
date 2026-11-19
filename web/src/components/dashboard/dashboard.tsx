@@ -7,6 +7,7 @@ import { RotateCwIcon } from "lucide-react";
 import { CompareView } from "@/components/compare/compare-view";
 import { FilterSidebar } from "@/components/filters/filter-sidebar";
 import { OperatorView } from "@/components/operator/operator-view";
+import { ReportView } from "@/components/report/report-view";
 import { MapCanvas } from "@/components/map/map-canvas";
 import { MapLegend } from "@/components/map/map-legend";
 import { SummaryPanel } from "@/components/summary/summary-panel";
@@ -22,7 +23,6 @@ import { abilityGroups, clusterViews, heatField, signatureClusters, totalCasts }
 import { PHASE_LABEL, SIDE_LABEL } from "@/lib/format";
 import { DEFAULT_TEAM, LAYERS, parseFilters, serializeFilters, TABS, type FilterState, type Layer, type Tab } from "@/lib/url-state";
 import { CopyLinkButton } from "./copy-link-button";
-import { PlaceholderPanel } from "./placeholder-panel";
 
 const LAYER_LABEL: Record<Layer, string> = { heat: "Heatmap", clusters: "Clusters", arrows: "Aim arrows" };
 
@@ -113,7 +113,7 @@ export function Dashboard() {
           <h1 className="text-base font-semibold tracking-tight">Utility Fingerprint</h1>
           <p className="text-xs text-muted-foreground">VALORANT tactical scouting · where a team uses its utility from</p>
         </div>
-        <TabsList>
+        <TabsList className="print:hidden">
           <TabsTrigger value="map">Utility map</TabsTrigger>
           <TabsTrigger value="report">Scouting report</TabsTrigger>
           <TabsTrigger value="operator">Operator</TabsTrigger>
@@ -264,11 +264,16 @@ export function Dashboard() {
         </div>
       </TabsContent>
 
-      <TabsContent value="report" className="flex-1 p-6">
-        <PlaceholderPanel
-          title="Scouting report"
-          body="A written summary of this team's utility habits per map and side, generated from the same aggregates. Coming in week 4."
-        />
+      <TabsContent value="report" className="min-h-0 flex-1 print:block">
+        {index.data ? (
+          <ReportView index={index.data} filters={filters} update={update} />
+        ) : (
+          <div className="mx-auto w-full max-w-3xl space-y-4 p-6" aria-busy="true">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        )}
       </TabsContent>
       <TabsContent value="operator" className="min-h-0 flex-1">
         {index.data ? (

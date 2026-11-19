@@ -1,4 +1,4 @@
-"""CLI: `uv run python -m utility_fingerprint_etl {inspect,poc}`."""
+"""CLI: `uv run python -m utility_fingerprint_etl {inspect,poc,build,report}`."""
 
 from __future__ import annotations
 
@@ -39,9 +39,50 @@ def main() -> None:
         action="store_true",
         help="skip extraction; recombine + aggregate",
     )
+    p_report = sub.add_parser(
+        "report",
+        help="scouting reports per team with Claude, from the aggregate JSON → web/public/data/reports",
+    )
+    pick = p_report.add_mutually_exclusive_group()
+    pick.add_argument("--teams", help="comma-separated team ids, e.g. 79,3429")
+    pick.add_argument(
+        "--top",
+        type=int,
+        help="Cloud9, Cloud9 GC, then teams with most games (default total: 20)",
+    )
+    p_report.add_argument(
+        "--force", action="store_true", help="ignore the cache and call the model again"
+    )
+    p_report.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="only write fact sheets + prompts to data/reports (no LLM call)",
+    )
+    p_report.add_argument(
+        "--check",
+        action="store_true",
+        help="re-run the number validator on existing report files (no LLM call)",
+    )
     args = parser.parse_args()
 
-    if args.command == "inspect":
+    if args.command == "report":
+        from .report import run as report
+
+        result = report(
+            teams=args.teams,
+            top=args.top,
+            force=args.force,
+            dry_run=args.dry_run,
+            check=args.check,
+        )
+        if args.check and any(result.values()):
+            raise SystemExit(1)
+        failed = [
+            tid for tid, r in result.items() if isinstance(r, dict) and "error" in r
+        ]
+        if failed:
+            raise SystemExit(f"report: failed for team(s) {', '.join(failed)}")
+    elif args.command == "inspect":
         from .inspect_schema import run
 
         run(args.series)

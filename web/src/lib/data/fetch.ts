@@ -1,4 +1,4 @@
-import type { DataIndex, TeamFile } from "./types";
+import type { DataIndex, ReportIndexEntry, TeamFile, TeamReport } from "./types";
 
 // Team files are fetched on demand (the full set is ~28 MB) and memoized per session.
 let indexPromise: Promise<DataIndex> | null = null;
@@ -24,6 +24,29 @@ async function getJson<T>(url: string): Promise<T> {
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
+class NotFound extends Error {}
+
+/**
+ * Like getJson, but a 404 resolves to null at once (no retry): reports only exist for some teams and
+ * the `reports/` folder may be missing entirely. Other failures retry as usual.
+ */
+async function getOptionalJson<T>(url: string): Promise<T | null> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) await wait(RETRY_DELAYS_MS[attempt - 1]);
+    try {
+      const res = await fetch(url, attempt > 0 ? { cache: "no-store" } : undefined);
+      if (res.status === 404) throw new NotFound(url);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+      return (await res.json()) as T;
+    } catch (err) {
+      if (err instanceof NotFound) return null;
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 export function loadIndex(): Promise<DataIndex> {
   if (!indexPromise) {
     indexPromise = getJson<DataIndex>("/data/index.json").catch((err) => {
@@ -42,6 +65,36 @@ export function loadTeam(teamId: string): Promise<TeamFile> {
       throw err;
     });
     teamCache.set(teamId, p);
+  }
+  return p;
+}
+
+let reportIndexPromise: Promise<ReportIndexEntry[]> | null = null;
+const reportCache = new Map<string, Promise<TeamReport | null>>();
+
+/** Teams with a report; [] when `reports/index.json` does not exist. */
+export function loadReportIndex(): Promise<ReportIndexEntry[]> {
+  if (!reportIndexPromise) {
+    reportIndexPromise = getOptionalJson<ReportIndexEntry[]>("/data/reports/index.json").then(
+      (list) => (Array.isArray(list) ? list : []),
+      (err) => {
+        reportIndexPromise = null;
+        throw err;
+      },
+    );
+  }
+  return reportIndexPromise;
+}
+
+/** null = no report for this team (404). */
+export function loadReport(teamId: string): Promise<TeamReport | null> {
+  let p = reportCache.get(teamId);
+  if (!p) {
+    p = getOptionalJson<TeamReport>(`/data/reports/${encodeURIComponent(teamId)}.json`).catch((err) => {
+      reportCache.delete(teamId);
+      throw err;
+    });
+    reportCache.set(teamId, p);
   }
   return p;
 }

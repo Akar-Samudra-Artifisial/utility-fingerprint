@@ -5,6 +5,7 @@ description = "ETL for Utility Fingerprint: GRID VALORANT feeds → aggregates f
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=2.10.0",
     "httpx>=0.28.1",
     "matplotlib>=3.11.2",
     "numpy>=2.5.5",

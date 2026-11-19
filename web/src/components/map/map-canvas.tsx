@@ -447,6 +447,7 @@ export function MapCanvas({
 
   const hovered = hoverId ? clusters.find((c) => c.id === hoverId) ?? null : null;
   const focused = focusId ? clusters.find((c) => c.id === focusId) ?? null : null;
+  const showHover = hovered !== null && hovered.id !== focusId;
 
   return (
     <div ref={wrapRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center">
@@ -524,7 +525,8 @@ export function MapCanvas({
             })}
           </div>
         )}
-        {hovered && hovered.id !== focusId && (
+        {/* One card at a time: a hovered / keyboard-focused cluster wins over the pinned one, which returns after. */}
+        {showHover && hovered && (
           <div
             className="pointer-events-none absolute z-10 w-60"
             style={{
@@ -540,7 +542,7 @@ export function MapCanvas({
             )}
           </div>
         )}
-        {focused && (
+        {focused && !showHover && (
           <div className="absolute top-2 right-2 z-10 w-60">
             {renderDetail ? (
               renderDetail(focused, () => onFocus(null))
