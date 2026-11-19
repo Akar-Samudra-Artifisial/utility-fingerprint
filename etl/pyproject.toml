@@ -1,0 +1,27 @@
+[project]
+name = "utility-fingerprint-etl"
+version = "0.1.0"
+description = "ETL for Utility Fingerprint: GRID VALORANT feeds → aggregates for the web app"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.5",
+    "pillow>=13.0.0",
+    "polars>=2.1.0",
+    "scikit-learn>=1.9.1",
+    "zstandard>=0.25.0",
+]
+
+[project.scripts]
+utility-fingerprint-etl = "utility_fingerprint_etl.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

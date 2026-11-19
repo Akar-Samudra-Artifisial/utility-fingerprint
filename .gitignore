@@ -1,0 +1,31 @@
+# Sky's The Limit 2026 hackathon data: licensed, must not be committed
+stl-hackathon-2026-grid-starter/
+grid-starter/
+*.zst
+*.jsonl
+*.parquet
+*.sqlite
+*.duckdb
+# anchored: an unanchored `data/` would also hide source folders such as web/src/lib/data/
+/data/
+# Aggregated JSON for the web app: derived from GRID data; keep out of git until organizers allow it
+/web/public/data/
+# PoC overlays plot derived data
+docs/poc/
+
+# ETL
+etl/.cache/
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env*
+!.env.example
+
+# Web
+node_modules/
+.next/
+out/
+
+.DS_Store
