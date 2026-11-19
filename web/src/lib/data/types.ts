@@ -240,7 +240,7 @@ export interface TeamFile {
 }
 
 /*
- * Scouting reports written by `utility_fingerprint_etl report` (Claude, checked against the aggregates):
+ * Scouting reports written by `utility_fingerprint_etl report` (Claude; numbers in claims are validated against the cited facts):
  * `web/public/data/reports/<team_id>.json` and `reports/index.json`. Only some teams have one.
  */
 

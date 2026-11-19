@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "export": "next build && node -e \"const f=require('fs');for(const p of ['out/index.html','out/data/index.json'])if(!f.existsSync(p)){console.error('export: missing '+p+' (run the ETL build first for data)');process.exit(1)}\"",
+    "start": "pnpm serve:static",
+    "serve:static": "python3 -m http.server 4173 --bind 127.0.0.1 --directory out",
     "lint": "eslint"
   },
   "dependencies": {

@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { agentColorMap } from "@/lib/colors";
+import { dataUrl } from "@/lib/data/fetch";
 import { rememberTeam, useIndex, useLastViewedTeam, useTeam } from "@/lib/data/hooks";
 import { abilityGroups, clusterViews, heatField, signatureClusters, totalCasts } from "@/lib/data/select";
 import { PHASE_LABEL, SIDE_LABEL } from "@/lib/format";
@@ -91,7 +92,7 @@ export function Dashboard() {
         <div className="max-w-md space-y-2">
           <h2 className="text-lg font-semibold">Data not found</h2>
           <p className="text-sm text-muted-foreground">
-            Could not load <code className="font-mono">/data/index.json</code>. Run the ETL build to generate the
+            Could not load <code className="font-mono">{dataUrl("index.json")}</code>. Run the ETL build to generate the
             aggregates into <code className="font-mono">web/public/data/</code>.
           </p>
           <Button size="sm" variant="outline" onClick={index.retry}>

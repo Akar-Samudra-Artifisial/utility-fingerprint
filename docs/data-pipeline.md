@@ -198,8 +198,9 @@ call each, no retries (≈ 11 k in / 6 k out per team; multiply by the current S
 ## Licensing
 
 GRID data and every derived file (Parquet, JSON aggregates, PoC images) stay local: `data/`, `web/public/data/`
-and `docs/poc/` are in `.gitignore`, and `.githooks/pre-commit` rejects staged `*.zst|*.jsonl|*.parquet`,
-the repo-root `data/` and `web/public/data/` (both anchored, so source folders like `web/src/lib/data/` stay
+and `docs/poc/` are in `.gitignore` (as is the static export `web/out/`, which copies `web/public/data/`), and
+`.githooks/pre-commit` rejects staged `*.zst|*.jsonl|*.parquet`, the repo-root `data/`, `web/public/data/` and
+`web/out/` (anchored, so source folders like `web/src/lib/data/` stay
 committable). Publishing the aggregates (hosted demo) waits for the organizers' answer
 (`organizer-question.md`).
 
@@ -217,7 +218,8 @@ Full build 2026-11-19, 8 CPUs (7 workers): extraction 242 s, total 363 s (aggreg
   winner side in 100 % of rounds where both exist.
 - Aggregates: 143 teams (17 with < 5 games skipped; Cloud9 `79` and Cloud9 GC `3429` included), 31.1 MB total
   (28.0 MB before the week 4 Operator fields, 29.8 MB before the 24×24 Operator heat, 30.0 MB before holder
-  position heat).
+  position heat). In round numbers: ~31 MB team JSON, ~32 MB including reports (`reports/` for 20 teams,
+  0.7 MB; file bytes, `du` shows more because of block size); the static export `web/out/` is ~33 MB.
 - OP holder positions: `op_positions` 165,131 samples (164,932 before `kill_inferred`). Cloud9 (`79`) defender
   holder position heat: Haven 30 OP rounds → 44 cells (max 9 rounds/cell), 4 clusters; Pearl 27 OP rounds →
   46 cells, 4 clusters.

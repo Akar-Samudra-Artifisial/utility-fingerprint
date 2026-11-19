@@ -10,8 +10,12 @@ grid-starter/
 /data/
 # Aggregated JSON for the web app: derived from GRID data; keep out of git until organizers allow it
 /web/public/data/
+# Static export: contains a copy of web/public/data
+/web/out/
 # PoC overlays plot derived data
 docs/poc/
+# Screenshots show derived data: keep out of git until the organizers allow it (docs/deploy.md)
+/docs/screenshots/
 
 # ETL
 etl/.cache/

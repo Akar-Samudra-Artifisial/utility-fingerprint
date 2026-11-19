@@ -1,6 +1,15 @@
 import type { DataIndex, ReportIndexEntry, TeamFile, TeamReport } from "./types";
 
-// Team files are fetched on demand (the full set is ~28 MB) and memoized per session.
+// Where the aggregate JSON lives: same-origin `/data` by default; NEXT_PUBLIC_DATA_BASE_URL (inlined at build
+// time) lets the data be hosted elsewhere, e.g. https://example.com/uf-data (no trailing slash needed).
+const DATA_BASE = (process.env.NEXT_PUBLIC_DATA_BASE_URL || "/data").replace(/\/+$/, "");
+
+/** URL of a file under the active data base, e.g. dataUrl("index.json") → "/data/index.json". */
+export function dataUrl(path: string): string {
+  return `${DATA_BASE}/${path}`;
+}
+
+// Team files are fetched on demand (~31 MB of team JSON, ~32 MB including reports) and memoized per session.
 let indexPromise: Promise<DataIndex> | null = null;
 const teamCache = new Map<string, Promise<TeamFile>>();
 
@@ -49,7 +58,7 @@ async function getOptionalJson<T>(url: string): Promise<T | null> {
 
 export function loadIndex(): Promise<DataIndex> {
   if (!indexPromise) {
-    indexPromise = getJson<DataIndex>("/data/index.json").catch((err) => {
+    indexPromise = getJson<DataIndex>(`${DATA_BASE}/index.json`).catch((err) => {
       indexPromise = null;
       throw err;
     });
@@ -60,7 +69,7 @@ export function loadIndex(): Promise<DataIndex> {
 export function loadTeam(teamId: string): Promise<TeamFile> {
   let p = teamCache.get(teamId);
   if (!p) {
-    p = getJson<TeamFile>(`/data/teams/${encodeURIComponent(teamId)}.json`).catch((err) => {
+    p = getJson<TeamFile>(`${DATA_BASE}/teams/${encodeURIComponent(teamId)}.json`).catch((err) => {
       teamCache.delete(teamId);
       throw err;
     });
@@ -75,7 +84,7 @@ const reportCache = new Map<string, Promise<TeamReport | null>>();
 /** Teams with a report; [] when `reports/index.json` does not exist. */
 export function loadReportIndex(): Promise<ReportIndexEntry[]> {
   if (!reportIndexPromise) {
-    reportIndexPromise = getOptionalJson<ReportIndexEntry[]>("/data/reports/index.json").then(
+    reportIndexPromise = getOptionalJson<ReportIndexEntry[]>(`${DATA_BASE}/reports/index.json`).then(
       (list) => (Array.isArray(list) ? list : []),
       (err) => {
         reportIndexPromise = null;
@@ -90,7 +99,7 @@ export function loadReportIndex(): Promise<ReportIndexEntry[]> {
 export function loadReport(teamId: string): Promise<TeamReport | null> {
   let p = reportCache.get(teamId);
   if (!p) {
-    p = getOptionalJson<TeamReport>(`/data/reports/${encodeURIComponent(teamId)}.json`).catch((err) => {
+    p = getOptionalJson<TeamReport>(`${DATA_BASE}/reports/${encodeURIComponent(teamId)}.json`).catch((err) => {
       reportCache.delete(teamId);
       throw err;
     });

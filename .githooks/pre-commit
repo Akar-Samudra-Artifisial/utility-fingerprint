@@ -2,7 +2,7 @@
 # Block commits that would add licensed GRID data (or extracts) to the repo.
 # Enable once per clone: git config core.hooksPath .githooks
 # Paths are anchored to the repo root: source folders like web/src/lib/data/ must stay committable.
-blocked=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(zst|jsonl|parquet)$|^data/|^web/public/data/')
+blocked=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(zst|jsonl|parquet)$|^data/|^web/public/data/|^web/out/|^docs/screenshots/')
 if [ -n "$blocked" ]; then
   echo "pre-commit: refusing to commit GRID data / derived extracts (license forbids redistribution):" >&2
   echo "$blocked" | sed 's/^/  /' >&2
