@@ -16,29 +16,33 @@ Why a static export instead of a regular Vercel Next.js build:
 - `cacheComponents` / `partialPrefetching` were removed from the Next config because PPR cannot run in export
   mode; the single client-rendered route used neither.
 
-## Organizer decision first
+## Organizer decision
 
-Hosting depends on the organizers' answer to
+We asked the organizers in
 [our forum question](https://cloud9.devpost.com/forum_topics/45930-hosting-a-public-demo-with-aggregate-stats-derived-from-grid-data-allowed)
-(text in `organizer-question.md`; status: **pending**). The data license forbids making "the Data, or any part or
-derivative of it" available to third parties, while allowing results, statistics and charts to be shown to
-judges and organizers.
+(text and verbatim answer in `organizer-question.md`; status: **answered 2026-11-21, allowed**). The aggregate
+stats count as a derived dataset, but showing results, statistics and charts in the hosted demo, screenshots and
+the demo video is permitted use under section 4(b) of the data license.
 
 | Answer | What we ship |
 |---|---|
-| Hosting aggregate JSON allowed | Vercel deployment of `web/out/` (below); link in the Devpost submission. |
+| **Hosting aggregate JSON allowed (selected, 2026-11-21)** | Vercel deployment of `web/out/` (below); link in the Devpost submission. |
 | Only screenshots / video allowed | Local demo (judges run the ETL on their own copy of the data) + demo video; screenshots in the README. |
 | Neither allowed | Local demo + demo video; `docs/screenshots/` stays out of git and the README keeps the screenshot block commented out. |
 
-Screenshots (`docs/screenshots/*.png`) show derived data, so until the answer they are git-ignored
-(`/docs/screenshots/` in `.gitignore`) and rejected by `.githooks/pre-commit` (`^docs/screenshots/`). If
-screenshots are allowed (first two rows only when the answer says so explicitly), re-enable them:
+Compliance with section 4(b) ("include only the small excerpts of the Data reasonably necessary … load the Data
+from the GRID repository rather than bundling it"):
 
-1. delete the `/docs/screenshots/` line (and its comment) from `.gitignore`;
-2. remove `|^docs/screenshots/` from the `grep -E` pattern in `.githooks/pre-commit`;
-3. uncomment the `<!-- TODO: enable after organizer answer … -->` block at the top of `README.md`;
-4. `git add docs/screenshots/*.png README.md .gitignore .githooks/pre-commit` and check `git status` shows no
-   other data.
+- Only the aggregate JSON and the scouting reports are hosted (`web/out/data/`). No raw GRID data, no
+  decompressed feeds, no Parquet or other intermediate files are hosted or committed.
+- The raw data is never bundled: the ETL loads it from the user's copy of the GRID repository
+  (`STL_DATA_DIR`).
+- `/data/*` keeps the `X-Robots-Tag: noindex` header (`web/vercel.json`).
+
+Screenshots (`docs/screenshots/*.png`) are allowed by the answer and are no longer git-ignored or blocked by
+`.githooks/pre-commit`; the screenshot block at the top of `README.md` is enabled. To publish them:
+`git add docs/screenshots/*.png README.md .gitignore .githooks/pre-commit` and check `git status` shows no
+other data.
 
 ## Local static demo
 
@@ -54,7 +58,7 @@ pnpm serve:static    # python3 http.server on http://127.0.0.1:4173 (Ctrl+C to s
 server works, e.g. `npx serve out`. Useful URLs: `/`, `/?tab=report&team=79`, `/?tab=operator&team=79`,
 `/data/teams/79.json`.
 
-## Vercel (only after the organizers allow it)
+## Vercel (allowed by the organizers, 2026-11-21)
 
 `scripts/deploy-vercel.sh` builds the export, verifies `out/index.html` and `out/data/index.json`, copies
 `web/vercel.json` into `out/` (headers: `Cache-Control: public, max-age=3600` and `X-Robots-Tag: noindex` for

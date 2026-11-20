@@ -67,7 +67,7 @@ Times are epoch milliseconds (UTC). `u, v` are normalized minimap coordinates (0
   `gap_exceeded`; `sample_hz` = 1 when the game's median frame spacing > 600 ms (VCT Americas 2025), else 5.
 - **Round assignment of casts**: last round whose start ≤ cast time ≤ round end + 2 s.
 
-## Aggregates (`web/public/data/`, git-ignored until organizers allow publishing)
+## Aggregates (`web/public/data/`, git-ignored; hosted only via the static export)
 
 - `index.json`: teams with ≥ 5 games (Cloud9 and Cloud9 GC always included): id, name, last tournament, games
   per map; maps with minimap URL, coefficients, formula and site positions in u/v.
@@ -201,8 +201,8 @@ GRID data and every derived file (Parquet, JSON aggregates, PoC images) stay loc
 and `docs/poc/` are in `.gitignore` (as is the static export `web/out/`, which copies `web/public/data/`), and
 `.githooks/pre-commit` rejects staged `*.zst|*.jsonl|*.parquet`, the repo-root `data/`, `web/public/data/` and
 `web/out/` (anchored, so source folders like `web/src/lib/data/` stay
-committable). Publishing the aggregates (hosted demo) waits for the organizers' answer
-(`organizer-question.md`).
+committable). Publishing the aggregates in the hosted demo was allowed by the organizers on 2026-11-21
+(`organizer-question.md`); they are uploaded with the static export, never committed.
 
 ## Verification (last full build)
 

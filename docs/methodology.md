@@ -112,7 +112,8 @@ Enter, Escape), and the report has a print layout (light page, no app chrome).
   constrained by the cited facts, which are embedded in each report for manual review.
 - **Small samples.** Many teams have few games per map; low-sample data is flagged in the dashboard and left out
   of the reports.
-- **Hosting** depends on the organizers' answer (`docs/organizer-question.md`).
+- **Hosting** is allowed by the organizers (2026-11-21) for aggregates and reports only
+  (`docs/organizer-question.md`).
 
 ## Tools used
 

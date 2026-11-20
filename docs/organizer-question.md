@@ -1,7 +1,7 @@
 # Question for Devpost Discussions
 
 **Posted:** 2026-11-20 — https://cloud9.devpost.com/forum_topics/45930-hosting-a-public-demo-with-aggregate-stats-derived-from-grid-data-allowed
-**Answer:** pending
+**Answer:** 2026-11-21, allowed (see [Answer](#answer) below)
 
 **Title:** Hosting a public demo with aggregate stats derived from GRID data — allowed?
 
@@ -32,3 +32,13 @@ Questions:
   data repo) plus the video walkthrough?
 
 Thank you!
+
+## Answer
+
+**Answered:** 2026-11-21 by Janet Fang (Manager) in the
+[forum thread](https://cloud9.devpost.com/forum_topics/45930-hosting-a-public-demo-with-aggregate-stats-derived-from-grid-data-allowed):
+
+> Hi Bayu, thanks for your patience while we checked with the Cloud9 and GRID team! The aggregate stats do count as a derived dataset, but this is permitted use under section 4(b) of the data LICENSE.md, which lets you show your Project, including results, statistics, charts and other outputs derived from the Data, to the Hackathon's judges and organizers and present it in Hackathon demos and events. So your hosted demo works, and screenshots and the demo video showing these visualizations are fine too. One reminder from the same section: include only the small excerpts of the Data reasonably necessary to demonstrate the Project, and otherwise load the Data from the GRID repository rather than bundling it. Good luck with your build!
+
+Outcome: the hosted demo (aggregate JSON + reports), README screenshots and the demo video are allowed. Raw GRID
+data stays out of the repo and the host; the ETL loads it from the GRID repository. See `deploy.md`.

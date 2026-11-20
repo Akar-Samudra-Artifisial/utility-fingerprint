@@ -62,7 +62,7 @@ a written report a coach can trust because every number in its claims is checked
 - **LLMs invent numbers.** We built a validator that rejects any number not matching a cited fact, plus number
   words and multipliers it cannot check.
 - **Licensing.** The data cannot be redistributed, so all derived files are git-ignored and blocked by a
-  pre-commit hook; hosting waits for the organizers' answer.
+  pre-commit hook; we asked the organizers before hosting the aggregates, and they confirmed it is permitted.
 
 ## Accomplishments that we're proud of
 
@@ -95,5 +95,5 @@ canvas, claude, anthropic-api, claude-code, valorant-api, grid, webstorm, junie
 ## Try it out
 
 - Repository: TODO: repo link
-- Demo: TODO: demo link (pending organizer answer on hosting, see `docs/organizer-question.md`)
+- Demo: TODO: Vercel link
 - Video: TODO: video link (YouTube)

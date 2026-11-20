@@ -6,12 +6,10 @@ Tactical Scouting). Utility Fingerprint turns GRID match feeds and the ability-c
 round phase. A Claude-written scouting report, whose numbers in claims are validated against the cited facts,
 sums it up for the coaching staff.
 
-<!-- TODO: enable after organizer answer (docs/screenshots/ is not committed yet, links would break)
 ![Utility map, Haven opening](docs/screenshots/week3-haven-opening.png)
 ![Compare, diff mode](docs/screenshots/week4-compare-diff.png)
 ![Operator profile](docs/screenshots/week4-operator.png)
 ![Scouting report](docs/screenshots/week5-report.png)
--->
 
 ## Features
 
@@ -86,9 +84,9 @@ The export holds ~31 MB of team JSON (~32 MB including reports, ~33 MB with the 
 ### (c) Deploy
 
 The aggregate JSON is git-ignored, so a git-connected build would have no data. `scripts/deploy-vercel.sh`
-builds the static export locally and uploads `web/out/` to Vercel as a static site. It refuses to deploy until
-the organizers allow hosting (set `UF_ORGANIZER_APPROVED=yes`); `scripts/deploy-vercel.sh --check` only builds
-and verifies. Details, the three organizer-answer scenarios and optional separate data hosting
+builds the static export locally and uploads `web/out/` to Vercel as a static site. The organizers allowed
+hosting (2026-11-21); the script still requires `UF_ORGANIZER_APPROVED=yes` to deploy, and
+`scripts/deploy-vercel.sh --check` only builds and verifies. Details, the organizer answer and optional separate data hosting
 (`NEXT_PUBLIC_DATA_BASE_URL`): [`docs/deploy.md`](docs/deploy.md).
 
 ## Architecture
@@ -158,11 +156,13 @@ use, and no use after the hackathon. Results, statistics and charts may be shown
 What this repo does about it:
 
 - Nothing from the data is committed. `.gitignore` covers `*.zst`, `*.jsonl`, `*.parquet`, `/data/`,
-  `/web/public/data/`, `/web/out/`, `docs/poc/` and, until the organizers answer, `docs/screenshots/`.
+  `/web/public/data/`, `/web/out/`, and `docs/poc/`.
 - `.githooks/pre-commit` refuses staged data files and those folders (`git config core.hooksPath .githooks`).
 - The ETL reads the data from `STL_DATA_DIR` outside the repo and never copies raw rows into the output.
   Published JSON holds aggregates only (heat cells with ≥ 2 events, clusters, rates).
-- A public hosted demo waits for the organizers' answer (`docs/organizer-question.md`, `docs/deploy.md`).
+- The organizers confirmed (2026-11-21) that the hosted demo, screenshots and demo video are permitted use under
+  section 4(b) of the data license. Only aggregate JSON and reports are hosted; raw data is loaded from the GRID
+  repository by the ETL (`docs/organizer-question.md`, `docs/deploy.md`).
 
 ## Known limitations
 
