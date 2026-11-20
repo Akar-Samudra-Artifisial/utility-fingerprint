@@ -114,7 +114,7 @@ Enter, Escape), and the report has a print layout (light page, no app chrome).
 
 ## Tools used
 
-- **JetBrains:** TODO(user): JetBrains tools.
+- **JetBrains:** WebStorm 2026.3 with Junie (built the report's "Export PDF" feature; log entry #5).
 - **Claude Code** (Anthropic) assisted with most of the code, tests and docs; tasks and manual corrections are
   logged in `docs/ai-workflow-log.md`.
 - **Claude API** (`claude-sonnet-5-5`) writes the scouting reports at build time, behind the number validator.

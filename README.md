@@ -202,7 +202,8 @@ cd web && pnpm lint && pnpm build       # build = static export to web/out/
 
 ## How it was built
 
-- **JetBrains:** TODO(user): confirm JetBrains tools (assumed WebStorm / PyCharm + Junie).
+- **JetBrains:** WebStorm 2026.3 with **Junie**, which built the report's "Export PDF" feature (entry #5 in
+  [`docs/ai-workflow-log.md`](docs/ai-workflow-log.md), spec in [`docs/junie-task-pdf-export.md`](docs/junie-task-pdf-export.md)).
 - **Claude Code** (Anthropic) assisted with most of the code, tests and docs. Its steps and decisions are logged in
   [`docs/ai-workflow-log.md`](docs/ai-workflow-log.md).
 - **Claude** (`claude-sonnet-5-5`) writes the scouting reports at build time, from aggregates only, behind the number

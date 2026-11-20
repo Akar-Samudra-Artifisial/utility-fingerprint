@@ -49,7 +49,7 @@ a written report a coach can trust because every number in its claims is checked
   validator → one retry → cache.
 - **Web:** Next.js static export, TypeScript, Tailwind, shadcn/ui, canvas 2D minimap, URL state, keyboard
   navigation for clusters, print layout for the report.
-- **Tooling:** TODO(user): JetBrains tools. Development was assisted by Claude Code (logged in
+- **Tooling:** WebStorm 2026.3 with Junie (Junie built the report's "Export PDF" feature). Development was assisted by Claude Code (logged in
   `docs/ai-workflow-log.md`).
 
 ## Challenges we ran into
@@ -90,7 +90,7 @@ a written report a coach can trust because every number in its claims is checked
 ## Built with
 
 python, polars, zstandard, scikit-learn, uv, parquet, next.js, react, typescript, tailwindcss, shadcn-ui,
-canvas, claude, anthropic-api, claude-code, valorant-api, grid, TODO(user): JetBrains tools
+canvas, claude, anthropic-api, claude-code, valorant-api, grid, webstorm, junie
 
 ## Try it out
 
