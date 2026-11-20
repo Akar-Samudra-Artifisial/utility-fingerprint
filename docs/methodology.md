@@ -77,9 +77,11 @@ rate, and low-sample maps are flagged.
 5. **Cache.** Keyed by fact sheet, prompt, schema, validator version and model, so unchanged teams are not
    regenerated. `report --check` re-validates written reports and flags stale facts.
 
-Reports exist for 20 teams, and `report --check` reports 0 problems for both Cloud9 reports. Token use is about
-11 k input / 6 k output per team (≈ 215 k / 120 k for 20 teams, plus retries).
-TODO(user): confirm the dollar cost for the 20-team run from the Anthropic console (estimate ~US$2.5).
+Reports exist for 20 teams, and `report --check` reports 0 problems for all 20. Token use is about
+10–11 k input / 6 k output per call; the full 20-team run (most teams needed one retry) used ≈ 377 k input /
+129 k output tokens with `claude-sonnet-5-5`, which cost **US$2.18** (Anthropic console).
+The prompt requires player names instead of pronouns; one report (Sentinels) still used pronouns and was
+regenerated once.
 
 ## Frontend
 

@@ -22,7 +22,7 @@ from typing import Any, Protocol
 from .config import PROJECT_ROOT
 from .constants import PHASES, SIDES, WEB_DATA_DIR
 
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 VALIDATOR_VERSION = 2  # bump when validation rules change (invalidates the cache)
 DEFAULT_MODEL = "claude-sonnet-5-5"
 REPORTS_DIR = WEB_DATA_DIR / "reports"  # git-ignored with the rest of web/public/data
@@ -640,6 +640,8 @@ Do not compute new numbers: no sums, differences, ratios, averages or "x times" 
 The headline contains no numbers at all.
 - A time of 0:00 is written as "barrier drop" (the first second after freezetime ends).
 - Utility spots are where the CASTER stood when using the ability, not where the utility landed.
+- Refer to players by their name from the sheet, every time. Never use pronouns for a player (no "he", "his", \
+"him", "she", "her", "they", "their" referring to a player); repeat the name or rephrase instead.
 - Do not invent facts beyond the sheet. Small samples were already removed; do not speculate about missing data.
 - map/side/phase fields use the keys from the sheet (side: "attacker" or "defender"; phase: buy, opening, mid, \
 late, post_plant) or null. tab is "map" (utility and map pool), "operator" or "compare" (versus reference).
