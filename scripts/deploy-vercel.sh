@@ -62,8 +62,12 @@ if ! command -v vercel >/dev/null 2>&1; then
   echo "deploy-vercel: the Vercel CLI is not installed (pnpm add -g vercel, then vercel login)." >&2
   exit 1
 fi
+# The export wipes out/.vercel, so re-link on every run (project name: UF_VERCEL_PROJECT).
+(cd "$OUT" && vercel link --yes --project "${UF_VERCEL_PROJECT:-utility-fingerprint}")
+# `vercel link` writes .env.local (OIDC token) + .gitignore into the folder; never upload them.
+rm -f "$OUT"/.env* "$OUT/.gitignore"
 if [ "$MODE" = production ]; then
-  vercel deploy "$OUT" --prod
+  (cd "$OUT" && vercel deploy --yes --prod)
 else
-  vercel deploy "$OUT"
+  (cd "$OUT" && vercel deploy --yes)
 fi
