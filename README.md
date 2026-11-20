@@ -189,6 +189,10 @@ What this repo does about it:
 | `docs/` | `data-pipeline.md`, `calibration.md`, `data-schema.md`, `deploy.md`, `organizer-question.md`, `ai-workflow-log.md` |
 | `.githooks/pre-commit` | blocks committing data |
 
+Submission drafts: [`docs/methodology.md`](docs/methodology.md) (methodology writeup),
+[`docs/devpost-submission.md`](docs/devpost-submission.md) (Devpost form text) and
+[`docs/video-script.md`](docs/video-script.md) (≤ 3 min demo video script).
+
 ## Testing
 
 ```bash
