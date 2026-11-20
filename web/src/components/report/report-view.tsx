@@ -12,6 +12,7 @@ import { REPORT_CLI } from "@/lib/data/report";
 import type { DataIndex, ReportIndexEntry } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
 import type { FilterState } from "@/lib/url-state";
+import { ExportPdfButton } from "./export-pdf-button";
 import { ReportArticle } from "./report-article";
 
 interface ReportViewProps {
@@ -116,7 +117,8 @@ export function ReportView({ index, filters, update: rawUpdate }: ReportViewProp
         </aside>
 
         <main className="order-first min-w-0 lg:order-none lg:overflow-y-auto print:overflow-visible">
-          <div className="flex justify-end px-4 pt-4 lg:px-8 print:hidden">
+          <div className="flex justify-end gap-2 px-4 pt-4 lg:px-8 print:hidden">
+            {report.data && !report.error && <ExportPdfButton title={`${teamName} scouting report`} />}
             <CopyLinkButton />
           </div>
           <div className="px-4 pt-2 pb-10 lg:px-8">
