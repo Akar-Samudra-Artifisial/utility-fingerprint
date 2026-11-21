@@ -85,6 +85,29 @@ Times are epoch milliseconds (UTC). `u, v` are normalized minimap coordinates (0
 - No per-event rows or raw coordinates are written to JSON (enforced by `tests/test_extract_aggregate.py` and
   `tests/test_operator.py`).
 
+### Setup win rates, players, local minimaps (week 6, additive fields)
+
+Casts are joined to `rounds` on (game_id, round_number); won = `winner_team_id == team_id`. Casts whose round
+is not in `rounds` still count for positions/clusters but not for `rounds`/`wins`.
+
+- `utility.<side>.<phase>.<ability>.clusters[]`: `rounds` (unique rounds with ≥ 1 of the cluster's casts),
+  `wins` (those rounds won by the casting team), `players` = `[[player_id, share]]`, top 3 by share of the
+  cluster's casts (2 decimals, ties by id, shares rounding to 0 dropped).
+- `maps.<map>.phase_rounds.<side>.<phase>` = `{rounds, wins}`: baseline = rounds with ≥ 1 cast of the team on
+  that side and phase (any ability, incl. off-minimap casts), so a cluster's `rounds` ≤ its baseline `rounds`.
+- `players` (team file root) = `{player_id: player_name}` for everyone in the team's casts.
+- `index.json` `maps[].display_icon_local` = `"/data/maps/<map>.png"`: the `display_icon` PNG copied to
+  `web/public/data/maps/` (cached in `etl/.cache/maps/`); omitted when the download fails (remote fallback).
+
+Example (Cloud9, id 79): `maps.lotus.utility.defender.post_plant.dark-cover.clusters[0]` →
+`{count: 77, rounds: 77, wins: 27, players: [["10612", 1.0]], …}`, baseline
+`maps.lotus.phase_rounds.defender.post_plant` → `{rounds: 102, wins: 40}`. Cloud9 has 935 clusters, 185 with
+`rounds` ≥ 10 and 71 with ≥ 20. Team JSON total after this change: 35.6 MB (Cloud9 371 KB).
+
+Note: `aggregate` empties `web/public/data/` before writing (`reset_web_data_dir`), so team JSON, `index.json`
+and `maps/` are always rebuilt and no stale team file survives. `reports/` (output of `report`) is kept, so an
+aggregate-only build does not need a manual backup. Reports whose facts changed are flagged by `report --check`.
+
 ### Operator profiler (week 4, additive fields)
 
 **OP holder** = player whose `seriesState.games[<current game>].teams[].players[].inventory.items[]` contains

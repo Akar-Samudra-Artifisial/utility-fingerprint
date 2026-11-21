@@ -6,7 +6,12 @@ import numpy as np
 import polars as pl
 import zstandard
 
-from utility_fingerprint_etl.aggregate import _team_payload, clusters, heat_grid
+from utility_fingerprint_etl.aggregate import (
+    _team_payload,
+    clusters,
+    heat_grid,
+    reset_web_data_dir,
+)
 from utility_fingerprint_etl.extract import (
     GameMeta,
     KillRec,
@@ -417,3 +422,179 @@ def test_team_payload_has_no_raw_points():
     text = json.dumps(payload)
     assert "0.777" not in text and "0.123" not in text
     assert payload["maps"]["testmap"]["plant_sites"] == {"A": 1}
+
+
+def _outcome_fixture():
+    """3 joined rounds (T1 wins 1 and 3) + casts in an unjoined round 9; one tight smoke spot."""
+    games = pl.DataFrame(
+        {"game_id": ["g1"], "map": ["testmap"], "winner_team_id": ["T1"]}
+    )
+    rounds = pl.DataFrame(
+        {
+            "game_id": ["g1"] * 3,
+            "round_number": pl.Series([1, 2, 3], dtype=pl.Int32),
+            "map": ["testmap"] * 3,
+            "attacker_team_id": ["T1"] * 3,
+            "defender_team_id": ["T2"] * 3,
+            "winner_team_id": ["T1", "T2", "T1"],
+            "plant_team_id": [None] * 3,
+            "plant_site": [None] * 3,
+        },
+        schema_overrides={"plant_team_id": pl.Utf8, "plant_site": pl.Utf8},
+    )
+    # round 1: p1 x3, round 2: p1 + p2, round 3: p3, round 9 (unjoined): p1 x2; plus one mid-phase cast
+    rn = [1, 1, 1, 2, 2, 3, 9, 9, 2]
+    pid = ["p1", "p1", "p1", "p1", "p2", "p3", "p1", "p1", "p2"]
+    phase = ["opening"] * 8 + ["mid"]
+    n = len(rn)
+    casts = pl.DataFrame(
+        {
+            "game_id": ["g1"] * n,
+            "round_number": pl.Series(rn, dtype=pl.Int32),
+            "player_id": pid,
+            "player_name": [f"name-{p}" for p in pid],
+            "map": ["testmap"] * n,
+            "side": ["attacker"] * n,
+            "phase": phase,
+            "ability": ["smoke"] * n,
+            "agent": ["omen"] * n,
+            "slot": ["ABILITY_1"] * n,
+            "u": [0.300 + i * 0.001 for i in range(n)],
+            "v": [0.600] * n,
+            "view_u": [1.0] * n,
+            "view_v": [0.0] * n,
+            "t_round_ms": [1000] * n,
+        }
+    )
+    kills = pl.DataFrame(
+        schema={
+            "killer_team_id": pl.Utf8,
+            "killer_id": pl.Utf8,
+            "weapon": pl.Utf8,
+            "game_id": pl.Utf8,
+            "round_number": pl.Int32,
+            "map": pl.Utf8,
+            "is_first_kill_of_round": pl.Boolean,
+            "killer_name": pl.Utf8,
+            "killer_u": pl.Float64,
+            "killer_v": pl.Float64,
+            "t_round_ms": pl.Int64,
+            "killer_side": pl.Utf8,
+            "phase": pl.Utf8,
+            "victim_u": pl.Float64,
+            "victim_v": pl.Float64,
+        }
+    )
+    rosters = pl.DataFrame({"game_id": ["g1"], "player_id": ["p1"]})
+    return _team_payload(
+        {"id": "T1", "name": "Team", "games": 1},
+        games,
+        rounds,
+        casts,
+        kills,
+        rosters,
+    )
+
+
+def test_cluster_round_outcomes_exclude_unjoined_rounds():
+    payload = _outcome_fixture()
+    entry = payload["maps"]["testmap"]["utility"]["attacker"]["opening"]["smoke"]
+    (cl,) = entry["clusters"]
+    assert cl["count"] == 8  # positions still use every on-minimap cast, incl. round 9
+    assert cl["rounds"] == 3 and cl["wins"] == 2  # round 9 has no rounds row → excluded
+    assert cl["wins"] <= cl["rounds"]
+
+
+def test_cluster_players_top3_sorted_shares():
+    payload = _outcome_fixture()
+    (cl,) = payload["maps"]["testmap"]["utility"]["attacker"]["opening"]["smoke"][
+        "clusters"
+    ]
+    players = cl["players"]
+    assert [p[0] for p in players] == ["p1", "p2", "p3"]
+    shares = [p[1] for p in players]
+    assert all(0 < s <= 1 for s in shares) and shares == sorted(shares, reverse=True)
+    assert shares[0] == round(6 / 8, 2)
+
+
+def test_top_players_caps_at_three_and_drops_zero_shares():
+    from utility_fingerprint_etl.aggregate import _top_players
+
+    ids = np.array(
+        ["a"] * 300 + ["b"] * 100 + ["c"] * 50 + ["d"] * 10 + ["e"], dtype=object
+    )
+    out = _top_players(ids)
+    assert [p[0] for p in out] == ["a", "b", "c"]
+    rare = _top_players(np.array(["a"] * 999 + ["z"], dtype=object))
+    assert rare == [["a", 1.0]]  # z rounds to 0.0 → dropped
+
+
+def test_phase_rounds_baseline_and_players_root():
+    payload = _outcome_fixture()
+    m = payload["maps"]["testmap"]
+    pr = m["phase_rounds"]
+    assert pr["attacker"]["opening"] == {"rounds": 3, "wins": 2}
+    assert pr["attacker"]["mid"] == {"rounds": 1, "wins": 0}
+    for side, phases in m["utility"].items():
+        for phase, abilities in phases.items():
+            base = pr[side][phase]
+            assert base["wins"] <= base["rounds"]
+            for entry in abilities.values():
+                for cl in entry.get("clusters", []):
+                    assert cl["rounds"] <= base["rounds"] and cl["wins"] <= base["wins"]
+    assert payload["players"] == {"p1": "name-p1", "p2": "name-p2", "p3": "name-p3"}
+    text = json.dumps(payload)
+    assert "#" not in text and "_won" not in text  # helper columns never reach the JSON
+
+
+def test_payload_without_round_columns_has_no_new_fields():
+    """Old cast tables (no game_id/round_number/player_id) still aggregate; new fields are simply absent."""
+    payload = _outcome_fixture()
+    assert "players" in payload
+    old = pl.DataFrame({"map": ["testmap"] * 3, "side": ["attacker"] * 3})
+    from utility_fingerprint_etl.aggregate import _cast_outcomes, _phase_rounds
+
+    assert _cast_outcomes("T1", old, pl.DataFrame()).columns == old.columns
+    assert _phase_rounds(old) == {}
+
+
+def test_report_facts_ignore_new_fields():
+    """The report loader/fact sheet reads JSON with and without the new fields identically."""
+    from utility_fingerprint_etl.report import build_facts
+
+    new = _outcome_fixture()
+    old = json.loads(json.dumps(new))
+    old.pop("players")
+    for m in old["maps"].values():
+        m.pop("phase_rounds")
+        for phases in m["utility"].values():
+            for abilities in phases.values():
+                for entry in abilities.values():
+                    for cl in entry.get("clusters", []):
+                        for k in ("rounds", "wins", "players"):
+                            cl.pop(k)
+    assert build_facts(new) == build_facts(old)
+
+
+def test_reset_web_data_dir_keeps_reports_drops_stale_outputs(tmp_path):
+    web = tmp_path / "data"
+    (web / "reports").mkdir(parents=True)
+    (web / "reports" / "x.json").write_text('{"team_id": "x"}')
+    (web / "teams").mkdir()
+    (web / "teams" / "stale.json").write_text("{}")
+    (web / "maps").mkdir()
+    (web / "maps" / "old.png").write_bytes(b"png")
+    (web / "index.json").write_text("{}")
+
+    reset_web_data_dir(web)
+
+    assert (web / "reports" / "x.json").read_text() == '{"team_id": "x"}'
+    assert (web / "teams").is_dir() and not any((web / "teams").iterdir())
+    assert not (web / "maps").exists()
+    assert not (web / "index.json").exists()
+
+
+def test_reset_web_data_dir_creates_missing_dir(tmp_path):
+    web = tmp_path / "nope" / "data"
+    reset_web_data_dir(web)
+    assert (web / "teams").is_dir()

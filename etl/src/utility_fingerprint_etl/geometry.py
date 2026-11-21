@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -60,6 +61,33 @@ def fetch_api_maps() -> list[dict[str, Any]]:
             f"Unexpected valorant-api.com response in {cache}: missing 'data' list"
         )
     return data
+
+
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+def download_minimap(calib: MapCalib, dest: Path) -> bool:
+    """Copy the map's displayIcon PNG to `dest` (cached in CACHE_DIR/maps). False, with a printed warning, on
+    any download/format failure so the build continues with the remote URL only."""
+    cache = CACHE_DIR / "maps" / f"{calib.name}.png"
+    try:
+        if not cache.is_file():
+            resp = httpx.get(calib.display_icon, timeout=30, follow_redirects=True)
+            resp.raise_for_status()
+            if not resp.content.startswith(PNG_MAGIC):
+                raise ValueError("response is not a PNG")
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(resp.content)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(cache.read_bytes())
+        return True
+    except (httpx.HTTPError, OSError, ValueError) as exc:
+        print(
+            f"[aggregate] WARN minimap {calib.name} not downloaded ({type(exc).__name__}: {exc}); "
+            "keeping remote display_icon only",
+            flush=True,
+        )
+        return False
 
 
 def load_calibs() -> dict[str, MapCalib]:

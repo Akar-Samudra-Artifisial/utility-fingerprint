@@ -45,6 +45,9 @@ CLUSTER_EPS_UV = 0.025  # ≈ 3.3 m on a typical map (1 uv unit ≈ 130 m)
 CLUSTER_MIN_SAMPLES = 3  # also the minimum cluster size that is published
 CLUSTER_MIN_SHARE = 0.05  # min_samples grows to 5 % of the group for large groups
 CLUSTER_MAX_PER_GROUP = 5
+CLUSTER_TOP_PLAYERS = (
+    3  # `players` per cluster: top throwers by share of the cluster's casts
+)
 FORCE_INCLUDE_TEAM_NAMES = ("Cloud9", "Cloud9 GC")
 
 # Operator profiler: an entry is `low_sample` when its denominator is below these thresholds.

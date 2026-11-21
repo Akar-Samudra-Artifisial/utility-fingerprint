@@ -102,3 +102,18 @@ def test_weapon_from_kill():
 
 def test_ts_ms():
     assert ts_ms("1970-01-01T00:00:01.500Z") == 1500
+
+
+def test_download_minimap_failure_returns_false(tmp_path, monkeypatch):
+    import httpx
+
+    from utility_fingerprint_etl import geometry
+
+    def boom(*_a, **_k):
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr(geometry, "CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(geometry.httpx, "get", boom)
+    calib = geometry.MapCalib("m", "M", "https://example.invalid/m.png", 1, 1, 0, 0, ())
+    dest = tmp_path / "maps" / "m.png"
+    assert geometry.download_minimap(calib, dest) is False and not dest.exists()

@@ -77,9 +77,12 @@ rate, and low-sample maps are flagged.
 5. **Cache.** Keyed by fact sheet, prompt, schema, validator version and model, so unchanged teams are not
    regenerated. `report --check` re-validates written reports and flags stale facts.
 
-Reports exist for 20 teams, and `report --check` reports 0 problems for all 20. Token use is about
-10–11 k input / 6 k output per call; the full 20-team run (most teams needed one retry) used ≈ 377 k input /
-129 k output tokens with `claude-sonnet-5-5`, which cost **US$2.18** (Anthropic console).
+Reports exist for the top 50 teams by games played, and `report --check` reports 0 problems for all 50.
+Token use is about 10–11 k input / 6 k output per call. The first 20-team run (most teams needed one retry)
+used ≈ 377 k input / 129 k output tokens with `claude-sonnet-5-5`, which cost **US$2.18** (Anthropic console).
+Extending to 50 teams reused those 20 from the cache and generated 30 new reports in 46 calls
+(≈ 490 k input / 180 k output tokens), which cost **US$2.04** (Anthropic console). Total for all 50
+reports: **US$4.22**.
 The prompt requires player names instead of pronouns; one report (Sentinels) still used pronouns and was
 regenerated once.
 

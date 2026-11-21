@@ -27,6 +27,7 @@ from .constants import (
     CLUSTER_MAX_PER_GROUP,
     CLUSTER_MIN_SAMPLES,
     CLUSTER_MIN_SHARE,
+    CLUSTER_TOP_PLAYERS,
     FORCE_INCLUDE_TEAM_NAMES,
     HEAT_GRID_SIZE,
     HEAT_MIN_COUNT,
@@ -44,7 +45,7 @@ from .constants import (
     SIDES,
     WEB_DATA_DIR,
 )
-from .geometry import load_calibs, to_uv
+from .geometry import download_minimap, load_calibs, to_uv
 
 
 def _r(x: float, nd: int = 4) -> float:
@@ -74,8 +75,14 @@ def clusters(
     view_u: np.ndarray | None = None,
     view_v: np.ndarray | None = None,
     t_round: np.ndarray | None = None,
+    round_key: np.ndarray | None = None,
+    won: np.ndarray | None = None,
+    player: np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
-    """DBSCAN on (u, v); returns up to CLUSTER_MAX_PER_GROUP summaries of clusters with >= min_samples members."""
+    """DBSCAN on (u, v); returns up to CLUSTER_MAX_PER_GROUP summaries of clusters with >= min_samples members.
+
+    Optional per-point arrays (same length as u) add round outcome fields: `round_key` (one value per round) +
+    `won` (1.0 / 0.0, NaN = round not joined) → `rounds`, `wins`; `player` (player id) → `players`."""
     n = len(u)
     if n < CLUSTER_MIN_SAMPLES:
         return []
@@ -113,9 +120,78 @@ def clusters(
             tr = tr[~np.isnan(tr)]
             if len(tr):
                 item["mean_t_round_ms"] = int(tr.mean())
+        if round_key is not None and won is not None:
+            item.update(_round_outcomes(round_key[m], won[m]))
+        if player is not None:
+            item["players"] = _top_players(player[m])
         out.append(item)
     out.sort(key=lambda x: -x["count"])
     return out[:CLUSTER_MAX_PER_GROUP]
+
+
+def _round_outcomes(round_key: np.ndarray, won: np.ndarray) -> dict[str, int]:
+    """Unique joined rounds and how many of them the casting team won (NaN `won` = not joined, excluded)."""
+    ok = ~np.isnan(won)
+    per_round = dict(zip(round_key[ok].tolist(), won[ok].tolist(), strict=True))
+    return {"rounds": len(per_round), "wins": int(sum(per_round.values()))}
+
+
+def _top_players(player: np.ndarray, top: int = CLUSTER_TOP_PLAYERS) -> list[list[Any]]:
+    """[[player_id, share], …] by share of the cluster's casts, ties by id; shares that round to 0 are dropped."""
+    counts = Counter(p for p in player.tolist() if p is not None)
+    n = len(player)
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:top]
+    return [[pid, _r(c / n, 2)] for pid, c in ranked if _r(c / n, 2) > 0]
+
+
+def _cast_outcomes(
+    tid: str, t_casts: pl.DataFrame, t_rounds: pl.DataFrame
+) -> pl.DataFrame:
+    """Add `_round_key` and `_won` (Float64: 1 won / 0 lost / null = round not found) to casts.
+
+    Casts without game_id/round_number (old fixtures) get no columns and no round outcome fields."""
+    if not {"game_id", "round_number"} <= set(t_casts.columns):
+        return t_casts
+    won = t_rounds.select(
+        "game_id",
+        pl.col("round_number").cast(t_casts.schema["round_number"]),
+        _won=(pl.col("winner_team_id") == tid).cast(pl.Float64),
+    ).unique(["game_id", "round_number"], keep="first")
+    return t_casts.join(won, on=["game_id", "round_number"], how="left").with_columns(
+        _round_key=pl.col("game_id") + "#" + pl.col("round_number").cast(pl.Utf8)
+    )
+
+
+def _phase_rounds(casts: pl.DataFrame) -> dict[str, Any]:
+    """`{side: {phase: {rounds, wins}}}`: joined rounds with >= 1 cast of the team on that side and phase."""
+    if "_won" not in casts.columns:
+        return {}
+    pr = (
+        casts.filter(pl.col("_won").is_not_null())
+        .unique(["side", "phase", "_round_key"], keep="first")
+        .group_by("side", "phase")
+        .agg(rounds=pl.len(), wins=pl.col("_won").sum().cast(pl.Int64))
+    )
+    out: dict[str, Any] = {}
+    for row in pr.sort("side", "phase").iter_rows(named=True):
+        out.setdefault(row["side"], {})[row["phase"]] = {
+            "rounds": row["rounds"],
+            "wins": row["wins"],
+        }
+    return {s: {p: out[s][p] for p in PHASES if p in out[s]} for s in SIDES if s in out}
+
+
+def _team_players(t_casts: pl.DataFrame) -> dict[str, str | None]:
+    """{player_id: last non-null player_name} for every player in the team's casts."""
+    if not {"player_id", "player_name"} <= set(t_casts.columns):
+        return {}
+    names = (
+        t_casts.filter(pl.col("player_id").is_not_null())
+        .group_by("player_id")
+        .agg(pl.col("player_name").drop_nulls().last())
+        .sort("player_id")
+    )
+    return dict(names.iter_rows())
 
 
 def _on_minimap(u_col: str, v_col: str) -> pl.Expr:
@@ -138,6 +214,9 @@ def _team_payload(
     t_pos: pl.DataFrame | None = None,
 ) -> dict[str, Any]:
     tid = team["id"]
+    t_casts = _cast_outcomes(tid, t_casts, t_rounds)
+    has_outcome = "_won" in t_casts.columns
+    has_player = "player_id" in t_casts.columns
     maps: dict[str, Any] = {}
     for (map_name,), g in sorted(t_games.partition_by("map", as_dict=True).items()):
         rr = t_rounds.filter(pl.col("map") == map_name)
@@ -194,10 +273,14 @@ def _team_payload(
                 _np(grp, "view_u")[ok],
                 _np(grp, "view_v")[ok],
                 _np(grp, "t_round_ms")[ok],
+                round_key=grp["_round_key"].to_numpy()[ok] if has_outcome else None,
+                won=_np(grp, "_won")[ok] if has_outcome else None,
+                player=grp["player_id"].to_numpy()[ok] if has_player else None,
             )
             if cl:
                 entry["clusters"] = cl
             utility.setdefault(side, {}).setdefault(phase, {})[ability] = entry
+        phase_rounds = _phase_rounds(t_casts.filter(pl.col("map") == map_name))
         maps[map_name] = {
             "games": g.height,
             "wins": g.filter(pl.col("winner_team_id") == tid).height,
@@ -213,9 +296,12 @@ def _team_payload(
             else {},
             "abilities": abilities,
             "utility": utility,
+            **({"phase_rounds": phase_rounds} if phase_rounds else {}),
         }
+    players = _team_players(t_casts)
     return {
         "team": team,
+        **({"players": players} if players else {}),
         "maps": maps,
         "operator": _operator(tid, t_rounds, t_kills, t_rosters, t_op, t_pos),
     }
@@ -704,6 +790,11 @@ DEFINITIONS = {
     "clusters": f"DBSCAN eps={CLUSTER_EPS_UV} uv, min_samples=max({CLUSTER_MIN_SAMPLES}, {CLUSTER_MIN_SHARE:.0%} of group); "
     f"radius = p90 distance to centroid; top {CLUSTER_MAX_PER_GROUP}",
     "rate_per_round": "casts / rounds the team played on that map and side",
+    "cluster_rounds": "clusters[].rounds = unique rounds with >= 1 of the cluster's casts, wins = those the casting "
+    "team won; casts whose round is not in the rounds table are excluded. clusters[].players = "
+    f"[[player_id, share of the cluster's casts]], top {CLUSTER_TOP_PLAYERS}. maps.<map>.phase_rounds."
+    "<side>.<phase> = {rounds, wins} for rounds with >= 1 team cast on that side/phase (baseline); "
+    "players = {player_id: player_name}",
     "operator_heat24": f"heat24/victim_heat24 (players) and op_kill_heat/op_victim_heat (team by_map): "
     f"[col, row, count] on a {OP_HEAT_GRID_SIZE}x{OP_HEAT_GRID_SIZE} grid; only cells with count >= {HEAT_MIN_COUNT}",
     "operator_position_heat": "op_position_heat (team) / position_heat (player): where OP holders stood while alive "
@@ -718,6 +809,27 @@ DEFINITIONS = {
     f"team map/side entries: rounds < {OP_TEAM_LOW_SAMPLE_ROUNDS}",
     "data_notice": "Aggregates derived from GRID match data (Sky's The Limit 2026 hackathon license). Not for redistribution.",
 }
+
+
+# Outputs written by other subcommands (Claude scouting reports from `report`): expensive to regenerate,
+# so a rebuild must not wipe them.
+PRESERVED_WEB_ENTRIES = frozenset({"reports"})
+
+
+def reset_web_data_dir(web_dir: Path) -> None:
+    """Empty `web_dir` except PRESERVED_WEB_ENTRIES, then create `web_dir/teams`.
+
+    Team JSON, index and maps are always rebuilt from scratch, so no stale team file survives.
+    """
+    if web_dir.exists():
+        for entry in web_dir.iterdir():
+            if entry.name in PRESERVED_WEB_ENTRIES:
+                continue
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+    (web_dir / "teams").mkdir(parents=True)
 
 
 def run(workers: int | None = None) -> dict[str, Any]:
@@ -779,9 +891,7 @@ def run(workers: int | None = None) -> dict[str, Any]:
         zip(teams_meta["team_id"].to_list(), teams_meta["name"].to_list(), strict=True)
     )
 
-    if WEB_DATA_DIR.exists():
-        shutil.rmtree(WEB_DATA_DIR)
-    (WEB_DATA_DIR / "teams").mkdir(parents=True)
+    reset_web_data_dir(WEB_DATA_DIR)
 
     jobs = []
     index_teams = []
@@ -843,11 +953,17 @@ def run(workers: int | None = None) -> dict[str, Any]:
         c = calibs.get(name)
         if c is None:
             continue
+        local_icon = (
+            {"display_icon_local": f"/data/maps/{name}.png"}
+            if download_minimap(c, WEB_DATA_DIR / "maps" / f"{name}.png")
+            else {}
+        )
         maps_index.append(
             {
                 "name": name,
                 "display_name": c.display_name,
                 "display_icon": c.display_icon,
+                **local_icon,
                 "games": map_games[name],
                 "coefficients": {
                     "xMultiplier": c.x_mult,
