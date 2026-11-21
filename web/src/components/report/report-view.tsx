@@ -7,16 +7,20 @@ import { CopyLinkButton } from "@/components/dashboard/copy-link-button";
 import { TeamPicker } from "@/components/filters/team-picker";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useReport, useReportIndex } from "@/lib/data/hooks";
+import { SectionHeader } from "@/components/ui/section-header";
+import { useReport, useReportIndex, type Load } from "@/lib/data/hooks";
 import { REPORT_CLI } from "@/lib/data/report";
-import type { DataIndex, ReportIndexEntry } from "@/lib/data/types";
+import type { DataIndex, ReportIndexEntry, TeamFile } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
 import type { FilterState } from "@/lib/url-state";
 import { ExportPdfButton } from "./export-pdf-button";
 import { ReportArticle } from "./report-article";
+import { ReportKpis, reportKpis, ReportToc } from "./report-glance";
 
 interface ReportViewProps {
   index: DataIndex;
+  /** Same team load as the other tabs (feeds the KPI rail). */
+  team: Load<TeamFile>;
   filters: FilterState;
   update: (patch: Partial<FilterState>) => void;
 }
@@ -31,23 +35,23 @@ function ReportTeamList({
   onPick: (teamId: string) => void;
 }) {
   return (
-    <ul className="space-y-1">
+    <ul className="grid grid-cols-2 gap-1">
       {entries.map((e) => {
         const id = String(e.team_id);
         const active = id === current;
         return (
-          <li key={id}>
+          <li key={id} className="min-w-0">
             <button
               type="button"
               aria-current={active ? "true" : undefined}
               onClick={() => onPick(id)}
+              title={`${e.team_name} · ${e.claims_kept} claims`}
               className={cn(
-                "flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-                active && "border-primary bg-primary/15",
+                "w-full truncate rounded-md border border-border px-2 py-1 text-left text-xs outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
+                active && "border-primary bg-primary/15 font-medium",
               )}
             >
-              <span className="truncate">{e.team_name}</span>
-              <span className="font-mono text-xs text-muted-foreground tabular-nums">{e.claims_kept} claims</span>
+              {e.team_name}
             </button>
           </li>
         );
@@ -56,7 +60,7 @@ function ReportTeamList({
   );
 }
 
-export function ReportView({ index, filters, update: rawUpdate }: ReportViewProps) {
+export function ReportView({ index, team, filters, update: rawUpdate }: ReportViewProps) {
   const update = useCallback((patch: Partial<FilterState>) => rawUpdate({ tab: "report", ...patch }), [rawUpdate]);
   const pickTeam = useCallback(
     (teamId: string) => update({ team: teamId, map: null, player: null, abilities: null, focus: null }),
@@ -74,6 +78,10 @@ export function ReportView({ index, filters, update: rawUpdate }: ReportViewProp
   const marked = useMemo(() => new Set(entries.map((e) => String(e.team_id))), [entries]);
   const teamName = index.teams.find((t) => t.id === filters.team)?.name ?? `Team ${filters.team}`;
   const loading = report.data === undefined && !report.error;
+  const kpis = useMemo(
+    () => (team.data && team.data.team.id === filters.team ? reportKpis(team.data, index.maps) : null),
+    [team.data, filters.team, index.maps],
+  );
 
   return (
     <>
@@ -117,11 +125,13 @@ export function ReportView({ index, filters, update: rawUpdate }: ReportViewProp
         </aside>
 
         <main className="order-first min-w-0 lg:order-none lg:overflow-y-auto print:overflow-visible">
-          <div className="flex justify-end gap-2 px-4 pt-4 lg:px-8 print:hidden">
-            {report.data && !report.error && <ExportPdfButton title={`${teamName} scouting report`} />}
-            <CopyLinkButton />
-          </div>
-          <div className="px-4 pt-2 pb-10 lg:px-8">
+          {/* With a report the actions sit next to its title (ReportArticle); otherwise keep Copy link here. */}
+          {!(report.data && !report.error) && (
+            <div className="flex justify-end gap-2 px-4 pt-4 lg:px-8 print:hidden">
+              <CopyLinkButton />
+            </div>
+          )}
+          <div className={cn("px-4 pb-10 lg:px-8", report.data && !report.error ? "pt-6 print:pt-0" : "pt-2")}>
             {report.error ? (
               <div className="mx-auto max-w-md space-y-3 py-16 text-center">
                 <p className="text-sm text-destructive">Could not load the report ({report.error}).</p>
@@ -139,7 +149,31 @@ export function ReportView({ index, filters, update: rawUpdate }: ReportViewProp
                 <Skeleton className="h-40 w-full" />
               </div>
             ) : report.data ? (
-              <ReportArticle report={report.data} maps={index.maps} teams={index.teams} update={navigate} />
+              // xl: article + sticky rail. Below xl and in print: one column, KPIs inside the article header.
+              <div className="mx-auto max-w-3xl xl:grid xl:max-w-[76rem] xl:grid-cols-[minmax(0,48rem)_20rem] xl:justify-center xl:gap-10 print:block print:max-w-none">
+                <ReportArticle
+                  report={report.data}
+                  maps={index.maps}
+                  teams={index.teams}
+                  update={navigate}
+                  actions={
+                    <>
+                      <ExportPdfButton title={`${teamName} scouting report`} />
+                      <CopyLinkButton />
+                    </>
+                  }
+                  kpis={<ReportKpis data={kpis} className="sm:grid-cols-3 print:grid-cols-3" />}
+                />
+                <aside aria-labelledby="report-glance-title" className="hidden min-w-0 xl:block print:hidden!">
+                  <div className="sticky top-6 space-y-6">
+                    <div className="space-y-2.5">
+                      <SectionHeader id="report-glance-title" title="At a glance" />
+                      <ReportKpis data={kpis} />
+                    </div>
+                    <ReportToc report={report.data} />
+                  </div>
+                </aside>
+              </div>
             ) : (
               <div className="mx-auto max-w-xl space-y-5 py-12">
                 <div className="space-y-2">

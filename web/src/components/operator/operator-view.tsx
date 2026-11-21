@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { RotateCwIcon } from "lucide-react";
 
 import { CopyLinkButton } from "@/components/dashboard/copy-link-button";
@@ -9,6 +10,7 @@ import { TeamPicker } from "@/components/filters/team-picker";
 import { MapCanvas, type HeatOverlay } from "@/components/map/map-canvas";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PageTitle } from "@/components/ui/page-title";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -25,8 +27,11 @@ import {
 import type { Load } from "@/lib/data/hooks";
 import {
   OP_KIND,
+  mostOpMap,
+  mostOpSide,
   opClusterViews,
   opMapLayers,
+  opRoundsOnMap,
   opSideListed,
   playerLines,
   playerSide,
@@ -40,6 +45,9 @@ import { pct, SIDE_LABEL } from "@/lib/format";
 import { OP_LAYERS, type FilterState, type OpLayer } from "@/lib/url-state";
 import { OP_HOLDER_NOTE, OpClusterDetail, opClusterLabel } from "./op-bits";
 import { OperatorPanel } from "./operator-panel";
+import { opInsights } from "./op-insights";
+import { KeyInsights } from "../summary/key-insights";
+import { LegendHelp } from "../map/legend-help";
 
 interface OperatorViewProps {
   index: DataIndex;
@@ -76,11 +84,11 @@ function LegendRow({
   empty?: string | null;
 }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+    <li className="flex items-center gap-x-2">
       <span aria-hidden className="h-2 w-20 shrink-0 rounded-full" style={{ background: gradient }} />
       <span className="text-foreground">{title}</span>
       {empty ? (
-        <span className="text-amber-300">· {empty}</span>
+        <span className="text-warning">· {empty}</span>
       ) : (
         detail && <span className="font-mono tabular-nums">· {detail}</span>
       )}
@@ -88,13 +96,28 @@ function LegendRow({
   );
 }
 
-export function OperatorView({ index, team, teamSummary, filters, mapName, update: rawUpdate }: OperatorViewProps) {
-  const update = useCallback((patch: Partial<FilterState>) => rawUpdate({ tab: "operator", ...patch }), [rawUpdate]);
+export function OperatorView({ index, team, teamSummary, filters, mapName: sharedMapName, update: rawUpdate }: OperatorViewProps) {
+  const op = team.data?.operator;
+  const mapName =
+    filters.map && (teamSummary?.games_per_map[filters.map] ?? 0) > 0
+      ? filters.map
+      : mostOpMap(op, teamSummary?.games_per_map) ?? sharedMapName;
+  // An explicit `side` in the URL wins; otherwise open the side with more OP rounds on this map.
+  const sideParam = useSearchParams().get("side");
+  const sideInUrl = sideParam === "attacker" || sideParam === "defender";
+  const side = sideInUrl ? filters.side : mostOpSide(op, mapName);
+  const update = useCallback(
+    (patch: Partial<FilterState>) => rawUpdate({ tab: "operator", map: mapName, side, ...patch }),
+    [mapName, side, rawUpdate],
+  );
+  // Pin the resolved map and side once data is loaded, so Copy link and tab switches keep what is shown.
+  const loaded = !!team.data;
+  useEffect(() => {
+    if (loaded && !sideInUrl) update({});
+  }, [loaded, sideInUrl, update]);
   const [scope, setScope] = useState<OpScope>("map");
   const [focusId, setFocusId] = useState<string | null>(null);
 
-  const op = team.data?.operator;
-  const side = filters.side;
   const mapMeta = index.maps.find((m) => m.name === mapName);
   const player = op?.players.some((p) => p.player_id === filters.player) ? filters.player : null;
   const playerName = op?.players.find((p) => p.player_id === player)?.name;
@@ -150,11 +173,7 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
   const playedMaps = index.maps
     .filter((m) => (teamSummary?.games_per_map[m.name] ?? 0) > 0)
     .sort((a, b) => (teamSummary?.games_per_map[b.name] ?? 0) - (teamSummary?.games_per_map[a.name] ?? 0));
-  const opRoundsOn = (m: string) => {
-    const a = teamSide(op, m, "attacker")?.rounds_with_op ?? 0;
-    const d = teamSide(op, m, "defender")?.rounds_with_op ?? 0;
-    return a + d;
-  };
+  const opRoundsOn = (m: string) => opRoundsOnMap(op, m);
   // Per-side list: tracked OP holders, plus players with OP kills but no tracked OP round (flagged).
   const sidePlayers = useMemo(
     () =>
@@ -212,7 +231,7 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
               </ToggleGroup>
             </div>
 
-            <SideField filters={filters} update={update} />
+            <SideField filters={{ ...filters, side }} update={update} />
 
             <div role="group" aria-labelledby="op-player-label" className="space-y-2">
               <p id="op-player-label" className="text-xs font-medium text-muted-foreground">
@@ -248,7 +267,7 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
                       <span className="min-w-0 text-left">
                         <span className="block truncate">{p.name}</span>
                         {untracked && (
-                          <span className="block truncate text-[11px] font-normal text-amber-300">{UNTRACKED_OP_LABEL}</span>
+                          <span className="block truncate text-xs font-normal text-warning">{UNTRACKED_OP_LABEL}</span>
                         )}
                       </span>
                       <span className="font-mono text-xs tabular-nums text-muted-foreground">{s.rounds_with_op}</span>
@@ -262,17 +281,17 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
       </aside>
 
       <main className="order-first flex min-h-[30rem] min-w-0 flex-col gap-3 p-4 lg:order-none lg:min-h-0">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <div className="mr-auto min-w-0">
-            <h2 className="truncate text-xl font-semibold tracking-tight">
+        <PageTitle
+          title={
+            <>
               {playerName ?? teamSummary?.name ?? "…"}
               <span className="text-muted-foreground"> Operator on </span>
               {mapMeta?.display_name ?? "…"}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {SIDE_LABEL[side]} · {OP_HOLDER_NOTE}
-            </p>
-          </div>
+            </>
+          }
+          side={side}
+          meta={OP_HOLDER_NOTE}
+        >
           <fieldset className="flex flex-wrap items-center gap-4">
             <legend className="sr-only">Operator map layers</legend>
             {OP_LAYERS.map((l) => (
@@ -285,9 +304,28 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
             ))}
           </fieldset>
           <CopyLinkButton />
-        </div>
+        </PageTitle>
 
-        <div className="relative flex min-h-[22rem] flex-1 flex-col rounded-lg border border-border bg-[#0b0f15] p-2">
+        {op && mapMeta && !noHolders && (
+          <KeyInsights
+            id="op-insights-title"
+            insights={opInsights({
+              side,
+              where,
+              team: teamStats,
+              positionClusters: layers.positionClusters,
+              opRounds: layers.opRounds,
+              drawnIds: new Set(clusters.map((c) => c.id)),
+              focusId: focused,
+              onFocus: setFocusId,
+              players: sidePlayers,
+              player,
+              onPlayer: (id) => update({ player: id }),
+            })}
+          />
+        )}
+
+        <div className="relative flex min-h-[22rem] flex-1 flex-col rounded-lg border border-border bg-map-surface p-2">
           {team.error ? (
             <div className="grid flex-1 place-items-center p-6 text-center">
               <div className="space-y-3">
@@ -321,7 +359,7 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
                   .join(", ") || "no heat layer"}; ${clusters.length} clusters. Numbers are in the panel on the right.`}
               />
               {(noHolders || !playerHasSide || nothingDrawn) && (
-                <div className="absolute inset-0 grid place-items-center bg-[#0b0f15]/80 p-6 text-center">
+                <div className="absolute inset-0 grid place-items-center bg-map-surface/80 p-6 text-center">
                   <div className="max-w-sm space-y-3">
                     <p className="font-medium">
                       {noHolders
@@ -366,12 +404,12 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
         </div>
 
         {op && mapMeta && (
-          <div className="space-y-1.5 text-xs text-muted-foreground">
-            <ul className="space-y-1" aria-label="Map legend">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <ul className="flex flex-wrap items-center gap-x-5 gap-y-1" aria-label="Map legend">
               {on("positions") && (
                 <LegendRow
                   gradient={HEAT_LEGEND_GRADIENT}
-                  title="Where the OP player stood during the first 45 s of OP rounds (share of OP rounds)"
+                  title="OP positions"
                   detail={layers.positions ? `max ${pct(layers.positions.max)} of ${layers.opRounds} OP rounds per cell` : undefined}
                   empty={positionsMsg}
                 />
@@ -379,7 +417,7 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
               {on("killers") && (
                 <LegendRow
                   gradient={KILL_LEGEND_GRADIENT}
-                  title="Where the OP player stood at each OP kill"
+                  title="Kill spots"
                   detail={`${layers.kills} OP kills · max ${layers.killers.max}/cell`}
                   empty={killersMsg}
                 />
@@ -387,7 +425,7 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
               {on("victims") && (
                 <LegendRow
                   gradient={VICTIM_LEGEND_GRADIENT}
-                  title="Where victims died (the far end of the OP's line of fire)"
+                  title="Victims"
                   detail={`${layers.kills} OP kills · max ${layers.victims.max}/cell`}
                   empty={victimsMsg}
                 />
@@ -403,11 +441,16 @@ export function OperatorView({ index, team, teamSummary, filters, mapName, updat
                 </li>
               )}
             </ul>
-            <p className="text-[11px] leading-snug">
-              Heat cells need at least 2 rounds or kills in the same spot, so small samples can leave a layer blank.
-              Victim heat marks where each OP victim died, i.e. the far end of the shot, not where the OP stood; read
-              it with Kill spots to see the angle the shot crossed.
-            </p>
+            <LegendHelp>
+              <p>OP positions show where the OP player stood during the first 45 s of OP rounds (share of OP rounds).</p>
+              <p>Kill spots show where the OP player stood at each OP kill.</p>
+              <p>Victims show where victims died (the far end of the OP&apos;s line of fire).</p>
+              <p>
+                Heat cells need at least 2 rounds or kills in the same spot, so small samples can leave a layer blank.
+                Victim heat marks where each OP victim died, i.e. the far end of the shot, not where the OP stood; read
+                it with Kill spots to see the angle the shot crossed.
+              </p>
+            </LegendHelp>
           </div>
         )}
       </main>

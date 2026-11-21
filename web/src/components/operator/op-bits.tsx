@@ -1,6 +1,5 @@
 import { XIcon } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OP_COLOR } from "@/lib/colors";
 import type { OpClusterKind } from "@/lib/data/operator";
@@ -13,10 +12,13 @@ import { PHASE_LABEL, pct, roundClock, SIDE_LABEL } from "@/lib/format";
 export const OP_HOLDER_NOTE =
   "OP holder = had an Operator when the round's buy phase ended (or picked one up).";
 
-/** Phase colours for the OP-kill distribution bars (quiet, distinct on the dark card). */
+/**
+ * Phase colours for the OP-kill distribution bars (quiet, distinct on the dark card).
+ * Opening is mint, not amber: amber is the app's "selected" accent.
+ */
 export const PHASE_COLOR: Record<string, string> = {
   buy: "#9aa6b5",
-  opening: "#ffc46b",
+  opening: "#4fe3a3",
   mid: "#ff8f5a",
   late: "#b48cff",
   post_plant: "#5ee6e6",
@@ -26,18 +28,10 @@ export function fmtPct(x: number | null | undefined, digits = 0): string {
   return x === null || x === undefined ? "—" : pct(x, digits);
 }
 
-export function OpLowSample({ title }: { title: string }) {
-  return (
-    <Badge variant="outline" className="border-amber-400/50 text-amber-200" title={title}>
-      Low sample
-    </Badge>
-  );
-}
-
 /** Stacked bar of OP kills per phase. */
 export function PhaseBar({ phases, label }: { phases: PhaseCounts; label: string }) {
   const total = PHASES.reduce((n, p) => n + (phases[p] ?? 0), 0);
-  if (total === 0) return <p className="text-[11px] text-muted-foreground">No OP kills.</p>;
+  if (total === 0) return <p className="text-xs text-muted-foreground">No OP kills.</p>;
   const desc = PHASES.filter((p) => phases[p])
     .map((p) => `${PHASE_LABEL[p]} ${phases[p]}`)
     .join(", ");
@@ -54,7 +48,7 @@ export function PhaseBar({ phases, label }: { phases: PhaseCounts; label: string
 
 export function PhaseKey() {
   return (
-    <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground" aria-label="Phase colours">
+    <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label="Phase colours">
       {PHASES.map((p) => (
         <li key={p} className="flex items-center gap-1.5">
           <span aria-hidden className="size-2 rounded-full" style={{ background: PHASE_COLOR[p] }} />
@@ -116,12 +110,12 @@ export function OpClusterDetail({ view, who, onClose }: { view: ClusterView; who
           </>
         )}
       </dl>
-      <p className="mt-2 border-t border-border pt-2 text-[11px] leading-snug text-muted-foreground">
+      <p className="mt-2 border-t border-border pt-2 text-xs leading-snug text-muted-foreground">
         {kind === "kill"
           ? "Position of the OP holder at the moment of the kill."
           : "Where the OP holder stood during the first 45 s of OP rounds."}
         {cluster.count < SIGNATURE_MIN_COUNT && (
-          <span className="text-amber-300">
+          <span className="text-warning">
             {" "}
             Estimate: only {cluster.count} {t.unit} in this cluster.
           </span>

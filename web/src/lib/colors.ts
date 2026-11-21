@@ -106,6 +106,23 @@ export const TEAM_COLOR = {
   b: "#ff9f45",
 } as const;
 
+/**
+ * Semantic colours, single source for code that needs literal values (canvas, inline gradients).
+ * Mirrors the `.dark` tokens in `src/app/globals.css` (`--attack`, `--defense`, `--team-a`, `--team-b`,
+ * `--warning`, `--map-surface`); CSS uses the tokens (`text-attack`, `bg-map-surface`…), so change both together.
+ */
+export const SEMANTIC = {
+  attack: "#ff6b5a",
+  defense: "#4fd1c5",
+  teamA: TEAM_COLOR.a,
+  teamB: TEAM_COLOR.b,
+  warning: "#f2cf5b",
+  mapSurface: "#0b0f15",
+} as const;
+
+/** Plant-site bar shades (light → dark grey), one per site letter in map order. */
+export const SITE_SHADES = ["#e9edf2", "#9aa6b5", "#5f6b7a", "#3d4652"] as const;
+
 function hexRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -132,7 +149,14 @@ export const DIFF_LUT: Uint8ClampedArray = (() => {
 
 export const DIFF_LEGEND_GRADIENT = `linear-gradient(90deg, ${TEAM_COLOR.b} 0%, rgba(255,159,69,0.35) 30%, transparent 50%, rgba(90,174,255,0.35) 70%, ${TEAM_COLOR.a} 100%)`;
 
+/** Attack red / Defense teal (= `--attack` / `--defense`). */
 export const SIDE_COLOR = {
-  attacker: "#ff6b5a",
-  defender: "#4fd1c5",
+  attacker: SEMANTIC.attack,
+  defender: SEMANTIC.defense,
+} as const;
+
+/** Tailwind text classes for the side tokens (prints dark-on-white via the print block). */
+export const SIDE_TEXT_CLASS = {
+  attacker: "text-attack",
+  defender: "text-defense",
 } as const;

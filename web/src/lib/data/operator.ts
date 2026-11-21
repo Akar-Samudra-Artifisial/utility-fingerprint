@@ -21,6 +21,29 @@ export function teamSide(op: OperatorBlock | undefined, map: string | null, side
   return m?.sides?.[side] ?? m?.[side];
 }
 
+export function opRoundsOnMap(op: OperatorBlock | undefined, map: string): number {
+  return (teamSide(op, map, "attacker")?.rounds_with_op ?? 0) + (teamSide(op, map, "defender")?.rounds_with_op ?? 0);
+}
+
+/** Side with more OP rounds on a map; attacker on a tie or when there is no OP data. */
+export function mostOpSide(op: OperatorBlock | undefined, map: string | null): Side {
+  if (!map) return "attacker";
+  const attack = teamSide(op, map, "attacker")?.rounds_with_op ?? 0;
+  const defense = teamSide(op, map, "defender")?.rounds_with_op ?? 0;
+  return defense > attack ? "defender" : "attacker";
+}
+
+export function mostOpMap(op: OperatorBlock | undefined, gamesPerMap: Record<string, number> | undefined): string | null {
+  if (!op || !gamesPerMap) return null;
+  return (
+    Object.entries(gamesPerMap)
+      .filter(([, games]) => games > 0)
+      .map(([map, games]) => ({ map, games, rounds: opRoundsOnMap(op, map) }))
+      .filter((candidate) => candidate.rounds > 0)
+      .sort((a, b) => b.rounds - a.rounds || b.games - a.games || a.map.localeCompare(b.map))[0]?.map ?? null
+  );
+}
+
 export function playerSide(p: OpPlayer, map: string | null, side: Side): OpSideStats | undefined {
   return map ? p.maps[map]?.sides[side] : undefined;
 }

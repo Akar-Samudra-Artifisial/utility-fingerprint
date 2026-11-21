@@ -2,17 +2,28 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { RotateCwIcon } from "lucide-react";
+import {
+  CrosshairIcon,
+  FileTextIcon,
+  GitCompareIcon,
+  MapIcon,
+  RotateCwIcon,
+  type LucideIcon,
+} from "lucide-react";
 
+import { BrandLockup } from "@/components/brand/logo";
 import { CompareView } from "@/components/compare/compare-view";
 import { FilterSidebar } from "@/components/filters/filter-sidebar";
 import { OperatorView } from "@/components/operator/operator-view";
 import { ReportView } from "@/components/report/report-view";
 import { MapCanvas } from "@/components/map/map-canvas";
 import { MapLegend } from "@/components/map/map-legend";
+import { KeyInsights } from "@/components/summary/key-insights";
+import { mapInsights } from "@/components/summary/map-insights";
 import { SummaryPanel } from "@/components/summary/summary-panel";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PageTitle } from "@/components/ui/page-title";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +37,13 @@ import { DEFAULT_TEAM, LAYERS, parseFilters, serializeFilters, TABS, type Filter
 import { CopyLinkButton } from "./copy-link-button";
 
 const LAYER_LABEL: Record<Layer, string> = { heat: "Heatmap", clusters: "Clusters", arrows: "Aim arrows" };
+
+const NAV: { tab: Tab; label: string; Icon: LucideIcon }[] = [
+  { tab: "map", label: "Utility map", Icon: MapIcon },
+  { tab: "report", label: "Scouting report", Icon: FileTextIcon },
+  { tab: "operator", label: "Operator", Icon: CrosshairIcon },
+  { tab: "compare", label: "Compare", Icon: GitCompareIcon },
+];
 
 export function Dashboard() {
   const searchParams = useSearchParams();
@@ -109,17 +127,35 @@ export function Dashboard() {
       onValueChange={(v) => (TABS as readonly string[]).includes(v) && update({ tab: v as Tab })}
       className="flex min-h-0 flex-1 flex-col gap-0"
     >
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-2.5 lg:px-6">
-        <div className="mr-auto min-w-0">
-          <h1 className="text-base font-semibold tracking-tight">Utility Fingerprint</h1>
-          <p className="text-xs text-muted-foreground">VALORANT tactical scouting · where a team uses its utility from</p>
-        </div>
-        <TabsList className="print:hidden">
-          <TabsTrigger value="map">Utility map</TabsTrigger>
-          <TabsTrigger value="report">Scouting report</TabsTrigger>
-          <TabsTrigger value="operator">Operator</TabsTrigger>
-          <TabsTrigger value="compare">Compare</TabsTrigger>
-        </TabsList>
+      <header className="flex flex-wrap items-center gap-x-8 gap-y-1 border-b border-border px-4 lg:px-6 print:border-black/20 print:px-0 print:pb-3">
+        <BrandLockup className="py-2.5" />
+        <nav aria-label="Views" className="order-last -mb-px w-full overflow-x-auto md:order-none md:w-auto print:hidden">
+          <TabsList variant="line" className="h-auto! gap-1 p-0">
+            {NAV.map(({ tab, label, Icon }) => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className="h-12 flex-none rounded-none border-0 border-b-2 border-transparent px-3 text-sm after:hidden data-active:border-primary! data-active:text-foreground"
+              >
+                <Icon aria-hidden />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </nav>
+        {/* Compare names two teams and Operator resolves its own map, so the chip only claims what is shared. */}
+        {teamSummary && filters.tab !== "compare" && (
+          <p className="ml-auto inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs print:hidden">
+            <span className="sr-only">Current context: </span>
+            <span className="truncate font-medium">{teamSummary.name}</span>
+            {filters.tab === "map" && mapMeta && (
+              <>
+                <span aria-hidden className="text-muted-foreground">·</span>
+                <span className="truncate text-muted-foreground">{mapMeta.display_name}</span>
+              </>
+            )}
+          </p>
+        )}
       </header>
 
       <TabsContent value="map" className="min-h-0 flex-1">
@@ -151,18 +187,22 @@ export function Dashboard() {
           </aside>
 
           <main className="order-first flex min-h-[28rem] min-w-0 flex-col gap-3 p-4 lg:order-none lg:min-h-0">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <div className="mr-auto min-w-0">
-                <h2 className="truncate text-xl font-semibold tracking-tight">
+            <PageTitle
+              title={
+                <>
                   {teamSummary?.name ?? "…"}
                   <span className="text-muted-foreground"> on </span>
                   {mapMeta?.display_name ?? "…"}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {filterText}
+                </>
+              }
+              side={filters.side}
+              meta={
+                <span>
+                  {filters.phases.map((p) => PHASE_LABEL[p]).join(", ")}
                   {derived && ` · ${derived.casts.toLocaleString("en-US")} casts · ${derived.clusters.length} clusters`}
-                </p>
-              </div>
+                </span>
+              }
+            >
               <fieldset className="flex flex-wrap items-center gap-4">
                 <legend className="sr-only">Map layers</legend>
                 {LAYERS.map((l) => (
@@ -179,9 +219,23 @@ export function Dashboard() {
                 ))}
               </fieldset>
               <CopyLinkButton />
-            </div>
+            </PageTitle>
 
-            <div className="relative flex min-h-[20rem] flex-1 flex-col rounded-lg border border-border bg-[#0b0f15] p-2">
+            {stats && mapMeta && derived && !isEmpty && (
+              <KeyInsights
+                id="map-insights-title"
+                insights={mapInsights({
+                  stats,
+                  map: mapMeta,
+                  signatures: derived.signatures,
+                  colors: derived.colors,
+                  focusId,
+                  onFocus: setFocus,
+                })}
+              />
+            )}
+
+            <div className="relative flex min-h-[20rem] flex-1 flex-col rounded-lg border border-border bg-map-surface p-2">
               {team.error ? (
                 <div className="grid flex-1 place-items-center p-6 text-center">
                   <div className="space-y-3">
@@ -209,7 +263,7 @@ export function Dashboard() {
                     description={`${mapMeta.display_name} minimap with ${derived.clusters.length} utility clusters for ${teamSummary?.name ?? "team"}, ${filterText}. Signature setups are listed in the summary panel.`}
                   />
                   {isEmpty && (
-                    <div className="absolute inset-0 grid place-items-center bg-[#0b0f15]/80 p-6 text-center">
+                    <div className="absolute inset-0 grid place-items-center bg-map-surface/80 p-6 text-center">
                       <div className="max-w-sm space-y-3">
                         <p className="font-medium">No utility for this filter</p>
                         <p className="text-sm text-muted-foreground">
@@ -267,7 +321,7 @@ export function Dashboard() {
 
       <TabsContent value="report" className="min-h-0 flex-1 print:block">
         {index.data ? (
-          <ReportView index={index.data} filters={filters} update={update} />
+          <ReportView index={index.data} team={team} filters={filters} update={update} />
         ) : (
           <div className="mx-auto w-full max-w-3xl space-y-4 p-6" aria-busy="true">
             <Skeleton className="h-8 w-48" />

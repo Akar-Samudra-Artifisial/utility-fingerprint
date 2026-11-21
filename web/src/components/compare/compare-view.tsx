@@ -5,8 +5,10 @@ import { RotateCwIcon } from "lucide-react";
 
 import { CopyLinkButton } from "@/components/dashboard/copy-link-button";
 import { MapCanvas } from "@/components/map/map-canvas";
+import { LegendHelp } from "@/components/map/legend-help";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PageTitle } from "@/components/ui/page-title";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -123,6 +125,9 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
   const noShared = !loading && !failed && mapName === null;
   const emptyFilter = derived !== null && derived.rows.length === 0;
   const agents = derived ? [...new Set([...derived.clusters.a, ...derived.clusters.b].map((c) => c.agent))].sort() : [];
+  const hasLowSample =
+    (statsA !== undefined && statsA.games < LOW_SAMPLE_GAMES) ||
+    (statsB !== undefined && statsB.games < LOW_SAMPLE_GAMES);
 
   const focusFor = (k: TeamKey) =>
     derived?.clusters[k].some((c) => c.id === focus[k]) ? focus[k] : null;
@@ -150,9 +155,9 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
       </aside>
 
       <main className="order-first flex min-h-[30rem] min-w-0 flex-col gap-3 p-4 lg:order-none lg:min-h-0">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <div className="mr-auto min-w-0">
-            <h2 className="truncate text-xl font-semibold tracking-tight">
+        <PageTitle
+          title={
+            <>
               {names.a}
               <span className="text-muted-foreground"> vs </span>
               {names.b}
@@ -162,9 +167,11 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
                   {mapMeta.display_name}
                 </>
               )}
-            </h2>
-            <p className="text-xs text-muted-foreground">{filterText} · heat in casts per round, same scale for both teams</p>
-          </div>
+            </>
+          }
+          side={filters.side}
+          meta={`${filters.phases.map((p) => PHASE_LABEL[p]).join(", ")} · heat in casts per round, same scale for both teams`}
+        >
           <ToggleGroup
             type="single"
             variant="outline"
@@ -198,9 +205,9 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
             </fieldset>
           )}
           <CopyLinkButton />
-        </div>
+        </PageTitle>
 
-        <div className="relative flex min-h-[22rem] flex-1 flex-col rounded-lg border border-border bg-[#0b0f15] p-2">
+        <div className="relative flex min-h-[22rem] flex-1 flex-col rounded-lg border border-border bg-map-surface p-2">
           {failed ? (
             <LoadError name={failed.name} load={failed.load} />
           ) : noShared ? (
@@ -257,7 +264,7 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
             </div>
           )}
           {emptyFilter && !failed && (
-            <div className="absolute inset-0 grid place-items-center bg-[#0b0f15]/80 p-6 text-center">
+            <div className="absolute inset-0 grid place-items-center bg-map-surface/80 p-6 text-center">
               <div className="max-w-sm space-y-3">
                 <p className="font-medium">No utility for this filter</p>
                 <p className="text-sm text-muted-foreground">Neither team has recorded casts for {filterText}.</p>
@@ -277,7 +284,7 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
         </div>
 
         {derived && (
-          <div className="flex flex-wrap items-start gap-x-6 gap-y-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             {filters.mode === "diff" ? (
               <div className="flex flex-wrap items-center gap-2" aria-label="Difference legend">
                 <span className="flex items-center gap-1.5">
@@ -306,16 +313,12 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
                     ))}
                   </ul>
                 )}
+                {filters.layers.includes("clusters") && agents.length > 0 && (
+                  <span>Circle = cluster · dashed = &lt; 5 casts</span>
+                )}
               </>
             )}
-            <p className="basis-full text-[11px] leading-snug">
-              {filters.mode === "diff"
-                ? "Each 48×48 cell: Team A casts ÷ Team A rounds on this side minus the same for Team B. Cells with a single cast are hidden in the data (a cell needs 2+), so a team with one stray cast there counts as 0 and a small gap can look larger than it is. Transparent = no difference."
-                : "Both maps share one heat scale, normalised per round, so equal colour means equal use. Positions are where the caster stood."}
-              {(statsA && statsA.games < LOW_SAMPLE_GAMES) || (statsB && statsB.games < LOW_SAMPLE_GAMES)
-                ? ` One team has fewer than ${LOW_SAMPLE_GAMES} games here: low sample.`
-                : ""}
-            </p>
+            {hasLowSample && <span className="text-warning">Low sample: one team has fewer than {LOW_SAMPLE_GAMES} games here</span>}
             {filters.mode === "diff" && (
               <div className="flex flex-wrap gap-x-5 gap-y-1">
                 {KEYS.map((k) => (
@@ -323,6 +326,14 @@ export function CompareView({ index, filters, update: rawUpdate, lastViewed }: C
                 ))}
               </div>
             )}
+            <LegendHelp>
+              <p>
+                {filters.mode === "diff"
+                  ? "Each 48×48 cell: Team A casts ÷ Team A rounds on this side minus the same for Team B. Cells with a single cast are hidden in the data (a cell needs 2+), so a team with one stray cast there counts as 0 and a small gap can look larger than it is. Transparent = no difference."
+                  : "Both maps share one heat scale, normalised per round, so equal colour means equal use. Positions are where the caster stood."}
+              </p>
+              {hasLowSample && <p>One team has fewer than {LOW_SAMPLE_GAMES} games here: low sample.</p>}
+            </LegendHelp>
           </div>
         )}
       </main>

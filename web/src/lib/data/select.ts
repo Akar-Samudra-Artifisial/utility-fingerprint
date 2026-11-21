@@ -149,6 +149,39 @@ export function signatureClusters(views: readonly ClusterView[], n = 5): Cluster
     .slice(0, n);
 }
 
+/** Below this gap (in round-win-rate points) the two sides read as even. */
+export const SIDE_EVEN_GAP = 0.02;
+
+export interface SideBalance {
+  attacker: number;
+  defender: number;
+  /** Side with the higher round win rate, or null when the gap is under SIDE_EVEN_GAP. */
+  stronger: Side | null;
+  gap: number;
+}
+
+export function sideBalance(stats: TeamMapStats): SideBalance | null {
+  if (!stats.rounds.attacker && !stats.rounds.defender) return null;
+  const attacker = stats.round_win_rate.attacker ?? 0;
+  const defender = stats.round_win_rate.defender ?? 0;
+  const gap = Math.abs(attacker - defender);
+  return { attacker, defender, gap, stronger: gap < SIDE_EVEN_GAP ? null : attacker > defender ? "attacker" : "defender" };
+}
+
+export interface PlantShare {
+  site: string;
+  n: number;
+  share: number;
+}
+
+/** Plants per site in map order; `top` is the most planted site (null without plants). */
+export function plantTendency(stats: TeamMapStats, sites: readonly string[]): { sites: PlantShare[]; total: number; top: PlantShare | null } {
+  const rows = sites.map((s) => ({ site: s, n: stats.plant_sites[s] ?? 0, share: stats.plant_site_share[s] ?? 0 }));
+  const total = rows.reduce((a, p) => a + p.n, 0);
+  const top = total === 0 ? null : [...rows].sort((a, b) => b.share - a.share)[0];
+  return { sites: rows, total, top };
+}
+
 export function totalCasts(
   stats: TeamMapStats,
   side: Side,

@@ -89,7 +89,7 @@ export function AbilityPicker({ groups, selected, colors, onChange, marker }: Ab
                         htmlFor={cid}
                         className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-sm text-foreground/90"
                       >
-                        <span className="w-3 font-mono text-[10px] text-muted-foreground" aria-hidden>
+                        <span className="w-3 font-mono text-2xs text-muted-foreground" aria-hidden>
                           {SLOT_KEY[a.slot] ?? ""}
                         </span>
                         <span className="truncate">{abilityName(a.ability)}</span>

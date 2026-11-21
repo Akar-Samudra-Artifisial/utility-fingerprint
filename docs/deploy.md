@@ -37,7 +37,8 @@ from the GRID repository rather than bundling it"):
   decompressed feeds, no Parquet or other intermediate files are hosted or committed.
 - The raw data is never bundled: the ETL loads it from the user's copy of the GRID repository
   (`STL_DATA_DIR`).
-- `/data/*` keeps the `X-Robots-Tag: noindex` header (`web/vercel.json`).
+- The whole site, including `/data/*`, sends `X-Robots-Tag: noindex` (`web/vercel.json`), so the demo and
+  its aggregates are not indexed by search engines.
 
 Screenshots (`docs/screenshots/*.png`) are allowed by the answer and are no longer git-ignored or blocked by
 `.githooks/pre-commit`; the screenshot block at the top of `README.md` is enabled. To publish them:
@@ -61,8 +62,10 @@ server works, e.g. `npx serve out`. Useful URLs: `/`, `/?tab=report&team=79`, `/
 ## Vercel (allowed by the organizers, 2026-11-21)
 
 `scripts/deploy-vercel.sh` builds the export, verifies `out/index.html` and `out/data/index.json`, copies
-`web/vercel.json` into `out/` (headers: `Cache-Control: public, max-age=3600` and `X-Robots-Tag: noindex` for
-`/data/*`, immutable caching for `/_next/static/*`) and uploads the folder with `vercel deploy out` as a plain
+`web/vercel.json` into `out/` (headers: `X-Robots-Tag: noindex` on every path, `Cache-Control: public,
+max-age=3600` for `/data/*`, immutable caching for `/_next/static/*`), re-links the folder to the Vercel project
+(`UF_VERCEL_PROJECT`, default `utility-fingerprint`), removes the `.env*` file that `vercel link` writes, and
+uploads the folder with `vercel deploy --yes` as a plain
 static site (no build runs on Vercel).
 
 ```bash

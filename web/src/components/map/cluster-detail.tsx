@@ -55,7 +55,7 @@ export function ClusterDetail({ view, color, onClose }: ClusterDetailProps) {
         )}
       </dl>
       {(lowSample || (consistency !== undefined && consistency < 0.5)) && (
-        <p className="mt-2 border-t border-border pt-2 text-[11px] leading-snug text-amber-300">
+        <p className="mt-2 border-t border-border pt-2 text-xs leading-snug text-warning">
           {lowSample
             ? `Estimate: only ${cluster.count} casts in this cluster.`
             : "Estimate: aim direction varies a lot between casts."}

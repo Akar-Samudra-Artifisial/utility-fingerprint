@@ -98,7 +98,7 @@ export function PhaseField({ filters, update }: FieldProps) {
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {filters.phases.map((p) => `${PHASE_LABEL[p]} ${PHASE_HINT[p]}`).join(" · ")}
       </p>
     </div>

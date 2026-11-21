@@ -142,7 +142,7 @@ export function CompareSidebar({
             if (!who) return null;
             return (
               <span
-                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-sm border border-border px-1 text-[10px] text-muted-foreground"
+                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-sm border border-border px-1 text-xs text-muted-foreground"
                 title={`Only Team ${who.toUpperCase()} used this in the current filter`}
               >
                 <TeamDot team={who} className="size-1.5" />

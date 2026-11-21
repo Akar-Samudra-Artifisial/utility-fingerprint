@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { TEAM_COLOR } from "@/lib/colors";
+import { Section } from "@/components/ui/section-header";
+import { StatCard, type StatTone } from "@/components/ui/stat-card";
+import { SITE_SHADES, TEAM_COLOR } from "@/lib/colors";
 import {
   LOW_SAMPLE_GAMES,
   MIN_CASTS,
@@ -15,7 +17,9 @@ import {
 import { SIDES, type MapMeta, type OpTeamSide, type Side, type TeamMapStats } from "@/lib/data/types";
 import { abilityName, agentName, pct, SIDE_LABEL } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { LowSampleBadge, TeamDot } from "./team-tag";
+import { TeamDot } from "./team-tag";
+
+const TEAM_TONE: Record<TeamKey, StatTone> = { a: "teamA", b: "teamB" };
 
 interface ComparePanelProps {
   map: MapMeta;
@@ -55,41 +59,29 @@ function OperatorCompare({ op, names, side }: { op: Record<TeamKey, OpTeamSide |
     <div className="space-y-3">
       {metric("Rounds with an OP", (s) => s.op_round_pct, 0)}
       {metric("First kills with OP", (s) => s.first_kill_op_share, 1)}
-      <dl className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {KEYS.map((k) => {
           const s = op[k];
           const top = s?.top_op_player;
           return (
-            <div key={k} className="min-w-0 space-y-0.5 rounded-md border border-border bg-card px-3 py-2">
-              <dt className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                <TeamDot team={k} className="size-2" />
-                <span className="truncate">Top OP · {names[k]}</span>
-              </dt>
-              <dd className="truncate font-semibold">{top && (top.op_kills > 0 || top.rounds_with_op > 0) ? top.name : "—"}</dd>
-              <dd className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                {top ? `${top.op_kills} kills · ${top.rounds_with_op} OP rds` : "no holder"}
-                {s?.low_sample ? " · low sample" : ""}
-              </dd>
-            </div>
+            <StatCard
+              key={k}
+              tone={TEAM_TONE[k]}
+              valueKind="text"
+              label={`Top OP · ${names[k]}`}
+              value={top && (top.op_kills > 0 || top.rounds_with_op > 0) ? top.name : null}
+              sub={top ? `${top.op_kills} kills · ${top.rounds_with_op} OP rds` : "no holder"}
+              lowSample={s?.low_sample && `Only ${s.rounds} rounds on this side (fewer than 24).`}
+            />
           );
         })}
-      </dl>
+      </div>
     </div>
   );
 }
 
 const KEYS: TeamKey[] = ["a", "b"];
 const ROW_LIMIT = 10;
-
-function Section({ title, children, note }: { title: string; children: React.ReactNode; note?: string }) {
-  return (
-    <section className="space-y-2.5">
-      <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
-      {children}
-      {note && <p className="text-[11px] leading-snug text-muted-foreground">{note}</p>}
-    </section>
-  );
-}
 
 /** Two thin bars, one per team, on a shared scale. */
 function PairedBars({ values, max, label }: { values: Record<TeamKey, number>; max: number; label: string }) {
@@ -145,19 +137,17 @@ export function ComparePanel({ map, side, names, stats, rows, differences, color
       <Section title={`Games on ${map.display_name}`}>
         <div className="grid grid-cols-2 gap-3">
           {KEYS.map((k) => (
-            <div key={k} className="space-y-1 rounded-md border border-border bg-card px-3 py-2.5">
-              <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                <TeamDot team={k} className="size-2" />
-                <span className="truncate">{names[k]}</span>
-              </p>
-              <p className="font-mono text-2xl font-semibold tabular-nums">
-                {stats[k].games}
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {stats[k].wins}–{stats[k].games - stats[k].wins}
-                </span>
-              </p>
-              <LowSampleBadge games={stats[k].games} />
-            </div>
+            <StatCard
+              key={k}
+              tone={TEAM_TONE[k]}
+              label={names[k]}
+              value={stats[k].games}
+              sub={`record ${stats[k].wins}–${stats[k].games - stats[k].wins}`}
+              lowSample={
+                stats[k].games < LOW_SAMPLE_GAMES &&
+                `Only ${stats[k].games} game${stats[k].games === 1 ? "" : "s"} on this map (fewer than ${LOW_SAMPLE_GAMES}); treat differences as anecdotal.`
+              }
+            />
           ))}
         </div>
       </Section>
@@ -204,8 +194,8 @@ export function ComparePanel({ map, side, names, stats, rows, differences, color
                       return share > 0 ? (
                         <div
                           key={s}
-                          className="grid place-items-center text-[10px] font-semibold text-background"
-                          style={{ width: pct(share, 2), background: ["#e9edf2", "#9aa6b5", "#5f6b7a", "#3d4652"][i % 4] }}
+                          className="grid place-items-center text-2xs font-semibold text-background"
+                          style={{ width: pct(share, 2), background: SITE_SHADES[i % SITE_SHADES.length] }}
                         >
                           {share >= 0.14 ? `${s} ${pct(share)}` : ""}
                         </div>
@@ -213,7 +203,7 @@ export function ComparePanel({ map, side, names, stats, rows, differences, color
                     })}
                   </div>
                 )}
-                <span className="w-8 text-right font-mono text-[11px] tabular-nums text-muted-foreground">{total}</span>
+                <span className="w-8 text-right font-mono text-xs tabular-nums text-muted-foreground">{total}</span>
               </div>
             );
           })}
