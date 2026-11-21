@@ -18,11 +18,36 @@ made with other tools are kept for completeness but do not count toward the bonu
 | 8 | 2026-11-21 | Junie in JetBrains WebStorm 2026.3 (model: Claude Fable 5.2) | Follow-up to #6: when the URL has no `side`, the Operator tab defaults to the side with more OP rounds on the chosen map (tie → attack) | Short follow-up prompt describing the gap found in #6 + acceptance URLs, same session | New `mostOpSide()` in `lib/data/operator.ts`, used in `operator-view.tsx`; explicit `?side=` still wins and the shown side is pinned to the URL. Browser check: `/?tab=operator&team=79` → Haven + Defense with a non-empty map | No code edits. Junie's first lint/build attempt failed on a wrong working directory and it retried successfully; its final summary said "no additional source edits were needed" although its own session log shows it made the edit in this run, so we verified the diff and behaviour ourselves | ~30 min (est.; Junie run ~14 min) |
 | 9 | 2026-11-21 | Junie in JetBrains WebStorm 2026.3 (model: Claude Fable 5.2; Junie's session summary also records usage of another model it routed to) | Utility map: win rate in rounds when a cluster is used vs phase baseline (Wilson 95 % interval, sample-size rules), in cluster detail, summary panel, one Key insights card and the legend help | Task spec `docs/junie-task-win-rate-player.md` §1 pasted verbatim; new session shared with #10 | New `lib/stats.ts` (Wilson interval + display rules), types for the new ETL fields, win-rate block in `cluster-detail.tsx`, summary and Key insights card, legend text "Correlation, not cause". Junie ran lint + build (both pass) and checked the page itself in Chrome DevTools after its Playwright attempts failed (missing module, port in use) | No code edits. Our verification: interval for 27/77 = 25–46 % (baseline 39 % inside → not coloured); ≥20, 10–19 and <10-round cases render as specified | ~1 day (est.; Junie run ~28 min) |
 | 10 | 2026-11-21 | Junie in JetBrains WebStorm 2026.3 (model: Claude Fable 5.2) | Utility map: player filter (clusters where the player has ≥ 20 % share, heat stays team-level, URL `op` reused), "Thrown by" in cluster detail, local minimap with remote fallback | Task spec `docs/junie-task-win-rate-player.md` §1b pasted verbatim, same session as #9 | Player picker in `filter-sidebar.tsx`, filter in `select.ts`, `op` URL param shared with the Operator tab (invalid ids ignored), "Thrown by: Name NN %" in cluster detail, `map-canvas.tsx` loads `/data/maps/<map>.png` first; lint + build pass | No code edits. Our verification: `op` filter leaves 9 clusters for one player with the "Heat shows the whole team" note; Operator tab still opens Haven Defense; local minimaps served 200 | ~½ day (est.; Junie run ~13 min) |
+| 11 | 2026-11-21 | AI coding agent (Claude via OpenCode; **not** Junie / JetBrains) | App icon, favicon and web manifest | "Design an original app icon (no Riot assets) and wire favicon, apple icon and web manifest" | Concept: fingerprint ridges drawn as minimap contours + amber crosshair dot; `web/src/app/{icon.svg,favicon.ico,apple-icon.png,manifest.ts}`, `web/public/icon-*.png` (incl. maskable), sources in `docs/brand/`; lint + build pass, icons served 200 on the live site | No manual code edits | not measured |
+| 12 | 2026-11-21 | AI coding agent (Claude via OpenCode; **not** Junie / JetBrains) | UI polish Day 1 + Day 2 from the audit in `docs/ui-polish-plan.md` (the Junie parts of the same commit are #6–#8) | "Apply Day 1 and Day 2 of the UI polish plan" | Day 1: semantic color tokens, shared `SectionHeader` / `StatCard` / `PageTitle`, brand header with icon tabs + context chip, `LowSampleBadge`. Day 2: Key insights strip, 2-column report layout with "At a glance" + "Jump to section", evidence chips, `text-2xs` type scale. Lint, `tsc`, build pass; before/after screenshots and print PDF checked | No manual code edits | not measured |
+| 13 | 2026-11-21 | AI coding agent (Claude via OpenCode; **not** Junie / JetBrains) | ETL data for Junie #9/#10: per-cluster win stats (`rounds`, `wins`), per-map `phase_rounds` baseline, top-3 player share per cluster, team `players`, local minimap download (`display_icon_local`); aggregate keeps existing `reports/` | "Add the aggregate fields needed for cluster win rate and the player filter; aggregates only" | Changes in `aggregate.py`, `geometry.py`, `constants.py` + new tests; `uv run pytest` 62 passed; `report --top 50 --check` 50/50, 0 problems | No manual code edits | not measured |
 
 ## Summary
 
-- **Tools used so far:** _(fill in)_
-- **Where AI helped most:** _(fill in)_
-- **Where AI was wrong and how we caught it:** _(fill in — e.g. schema assumptions checked against real data)_
-- **Total estimated time saved:** _(fill in)_
-- **Lessons for next time:** _(fill in)_
+- **Tools used so far:** Junie in JetBrains WebStorm 2026.3 (model: Claude Fable 5.2) for all frontend
+  feature work in #5–#10 (the entries that count for this bonus).
+  - Not counted for the bonus: an AI coding agent (Claude via OpenCode) for the scaffold, ETL and report
+    pipeline (#1–#4), the app icon, UI polish Day 1–2 and the ETL fields behind #9/#10 (#11–#13), and the
+    Claude API (`claude-sonnet-5-5`) at build time for the scouting reports
+    (US$4.22 for all 50 reports, see `docs/methodology.md`).
+- **Where AI helped most:** Turning written task specs (`docs/junie-task-*.md`) into working, self-checked
+  frontend features in single runs of ~4–28 min: PDF export, Operator map/side defaults, the shared legend
+  help, cluster win rate with a Wilson 95 % interval, the player filter, "Thrown by" and local minimaps.
+  - Junie ran `pnpm lint` + `pnpm build` itself every time; in #9 it switched to Chrome DevTools to check the
+    page after its Playwright attempts failed. No Junie run needed manual code edits from us.
+- **Where AI was wrong and how we caught it:** We re-ran lint/build and did an independent browser check
+  after every Junie run.
+  - #6: the code met the spec but Cloud9 opened on Haven Attack with 0 OP rounds (empty map); our browser
+    check caught it and #8 fixed it.
+  - #8: Junie's final summary said "no additional source edits were needed", but its own session log shows it
+    made the edit; we verified the diff and behaviour ourselves rather than trusting the summary.
+  - #5: Junie did not exercise the print dialog, so the PDF output was verified manually.
+  - Outside the bonus (#1–#4): schema and side-switch assumptions were checked against real data; report claims
+    are gated by a number validator (`report --check`: 0 problems across 50 reports).
+- **Total estimated time saved:** Estimate only, summed from the "Time saved (est.)" column: Junie runs #5–#10
+  ≈ 3.5 h + 1.5 days of manual work, against ~82 min of total Junie run time (4 + 13 + 10 + 14 + 28 + 13 min).
+  Including the non-bonus entries #1–#4 (~4–5 days), the project total is roughly 6–7 working days (estimate); #11–#13 were not measured and are not included.
+- **Lessons for next time:** Precise specs with acceptance URLs make one-shot runs work; a short follow-up
+  prompt in the same session is enough for gaps.
+  - "Lint and build pass" is not "correct": always check real behaviour in the browser with real data.
+  - Read the agent's session log or diff, not just its final summary.
