@@ -14,6 +14,8 @@ import { TeamPicker } from "./team-picker";
 interface FilterSidebarProps {
   index: DataIndex;
   team: TeamSummary | undefined;
+  players?: Record<string, string>;
+  player: string | null;
   filters: FilterState;
   mapName: string | null;
   groups: AgentGroup[];
@@ -105,10 +107,25 @@ export function PhaseField({ filters, update }: FieldProps) {
   );
 }
 
-export function FilterSidebar({ index, team, filters, mapName, groups, selected, colors, update }: FilterSidebarProps) {
+export function FilterSidebar({
+  index,
+  team,
+  players,
+  player,
+  filters,
+  mapName,
+  groups,
+  selected,
+  colors,
+  update,
+}: FilterSidebarProps) {
   const playedMaps = index.maps
     .filter((m) => (team?.games_per_map[m.name] ?? 0) > 0)
     .sort((a, b) => (team?.games_per_map[b.name] ?? 0) - (team?.games_per_map[a.name] ?? 0));
+  const playerLabelId = useId();
+  const playerOptions = Object.entries(players ?? {}).sort(
+    ([idA, nameA], [idB, nameB]) => nameA.localeCompare(nameB) || idA.localeCompare(idB),
+  );
 
   return (
     <div className="space-y-6">
@@ -152,6 +169,42 @@ export function FilterSidebar({ index, team, filters, mapName, groups, selected,
 
       <SideField filters={filters} update={update} />
       <PhaseField filters={filters} update={update} />
+
+      {playerOptions.length > 0 && (
+        <div className="space-y-2">
+          <p id={playerLabelId} className="text-xs font-medium text-muted-foreground">
+            Player
+          </p>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            spacing={1}
+            value={player ? `player:${player}` : "all"}
+            onValueChange={(value) => {
+              if (!value) return;
+              update({ player: value === "all" ? null : value.slice("player:".length), focus: null });
+            }}
+            className="grid w-full grid-cols-2"
+            aria-labelledby={playerLabelId}
+          >
+            <ToggleGroupItem
+              value="all"
+              className="justify-start data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-foreground"
+            >
+              All players
+            </ToggleGroupItem>
+            {playerOptions.map(([id, name]) => (
+              <ToggleGroupItem
+                key={id}
+                value={`player:${id}`}
+                className="min-w-0 justify-start data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-foreground"
+              >
+                <span className="truncate">{name}</span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+      )}
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">

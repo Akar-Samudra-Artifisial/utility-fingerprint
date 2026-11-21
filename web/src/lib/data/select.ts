@@ -3,9 +3,11 @@ import {
   type AbilityStats,
   type Cluster,
   type Phase,
+  type RoundRecord,
   type Side,
   type TeamMapStats,
 } from "./types";
+import { clusterWinRate, type ClusterWinRate } from "@/lib/stats";
 
 export interface AbilityOption {
   ability: string;
@@ -30,6 +32,15 @@ export interface ClusterView {
   cluster: Cluster;
   ratePerRound: number;
   abilityCount: number;
+}
+
+/** Minimum share of a cluster's casts for it to be included in a player's filtered view. */
+export const PLAYER_MIN_SHARE = 0.2;
+
+/** Cluster rate against the baseline for this view's side and phase. */
+export function viewWinRate(stats: TeamMapStats, view: ClusterView): ClusterWinRate {
+  const baseline: RoundRecord | undefined = stats.phase_rounds?.[view.side]?.[view.phase];
+  return clusterWinRate(view.cluster, baseline);
 }
 
 export interface HeatField {
@@ -116,12 +127,16 @@ export function clusterViews(
   side: Side,
   phases: readonly Phase[],
   selected: ReadonlySet<string> | null,
+  player: string | null = null,
 ): ClusterView[] {
   const out: ClusterView[] = [];
   for (const [phase, ability, s] of entries(stats, side, phases)) {
     if (!s.clusters || !included(ability, selected)) continue;
     const meta = stats.abilities[ability];
     s.clusters.forEach((cluster, i) => {
+      if (player && !cluster.players?.some(([playerId, share]) => playerId === player && share >= PLAYER_MIN_SHARE)) {
+        return;
+      }
       out.push({
         id: `${ability}|${phase}|${i}`,
         ability,

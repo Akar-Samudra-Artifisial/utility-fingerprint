@@ -19,7 +19,7 @@ export const DEFAULT_OP_LAYERS: OpLayer[] = ["positions", "clusters"];
 
 export interface FilterState {
   tab: Tab;
-  /** Operator tab: selected OP player id; null = all players. */
+  /** Utility map / Operator tab: selected player id; null = all players. */
   player: string | null;
   opLayers: OpLayer[];
   team: string;

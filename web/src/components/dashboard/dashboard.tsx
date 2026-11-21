@@ -17,6 +17,7 @@ import { FilterSidebar } from "@/components/filters/filter-sidebar";
 import { OperatorView } from "@/components/operator/operator-view";
 import { ReportView } from "@/components/report/report-view";
 import { MapCanvas } from "@/components/map/map-canvas";
+import { ClusterDetail } from "@/components/map/cluster-detail";
 import { MapLegend } from "@/components/map/map-legend";
 import { KeyInsights } from "@/components/summary/key-insights";
 import { mapInsights } from "@/components/summary/map-insights";
@@ -31,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { agentColorMap } from "@/lib/colors";
 import { dataUrl } from "@/lib/data/fetch";
 import { rememberTeam, useIndex, useLastViewedTeam, useTeam } from "@/lib/data/hooks";
-import { abilityGroups, clusterViews, heatField, signatureClusters, totalCasts } from "@/lib/data/select";
+import { abilityGroups, clusterViews, heatField, signatureClusters, totalCasts, viewWinRate } from "@/lib/data/select";
 import { PHASE_LABEL, SIDE_LABEL } from "@/lib/format";
 import { DEFAULT_TEAM, LAYERS, parseFilters, serializeFilters, TABS, type FilterState, type Layer, type Tab } from "@/lib/url-state";
 import { CopyLinkButton } from "./copy-link-button";
@@ -79,12 +80,18 @@ export function Dashboard() {
 
   const mapMeta = index.data?.maps.find((m) => m.name === mapName);
   const stats = mapName ? team.data?.maps[mapName] : undefined;
+  const players = team.data?.players;
+  const player =
+    filters.player !== null && players && Object.prototype.hasOwnProperty.call(players, filters.player)
+      ? filters.player
+      : null;
+  const playerName = player === null ? null : (players?.[player] ?? player);
   const selected = useMemo(() => (filters.abilities === null ? null : new Set(filters.abilities)), [filters.abilities]);
 
   const derived = useMemo(() => {
     if (!stats) return null;
     const groups = abilityGroups(stats, filters.side, filters.phases);
-    const clusters = clusterViews(stats, filters.side, filters.phases, selected);
+    const clusters = clusterViews(stats, filters.side, filters.phases, selected, player);
     return {
       groups,
       colors: agentColorMap(Object.values(stats.abilities).map((a) => a.agent)),
@@ -93,7 +100,7 @@ export function Dashboard() {
       signatures: signatureClusters(clusters),
       casts: totalCasts(stats, filters.side, filters.phases, selected),
     };
-  }, [stats, filters.side, filters.phases, selected]);
+  }, [stats, filters.side, filters.phases, selected, player]);
 
   const focusId = derived?.clusters.some((c) => c.id === filters.focus) ? filters.focus : null;
   const setFocus = useCallback((id: string | null) => update({ focus: id }), [update]);
@@ -167,6 +174,8 @@ export function Dashboard() {
                   <FilterSidebar
                     index={index.data}
                     team={teamSummary}
+                    players={players}
+                    player={player}
                     filters={filters}
                     mapName={mapName}
                     groups={derived?.groups ?? []}
@@ -200,6 +209,7 @@ export function Dashboard() {
                 <span>
                   {filters.phases.map((p) => PHASE_LABEL[p]).join(", ")}
                   {derived && ` · ${derived.casts.toLocaleString("en-US")} casts · ${derived.clusters.length} clusters`}
+                  {playerName && ` · Player: ${playerName}`}
                 </span>
               }
             >
@@ -228,6 +238,7 @@ export function Dashboard() {
                   stats,
                   map: mapMeta,
                   signatures: derived.signatures,
+                  clusters: derived.clusters,
                   colors: derived.colors,
                   focusId,
                   onFocus: setFocus,
@@ -261,7 +272,29 @@ export function Dashboard() {
                     focusId={focusId}
                     onFocus={setFocus}
                     description={`${mapMeta.display_name} minimap with ${derived.clusters.length} utility clusters for ${teamSummary?.name ?? "team"}, ${filterText}. Signature setups are listed in the summary panel.`}
+                    renderDetail={(view, onClose) => (
+                      <ClusterDetail
+                        view={view}
+                        color={derived.colors.get(view.agent) ?? "#fff"}
+                        onClose={onClose}
+                        players={players}
+                        winRate={stats ? viewWinRate(stats, view) : undefined}
+                      />
+                    )}
                   />
+                  {player && playerName && derived.clusters.length === 0 && !isEmpty && (
+                    <p className="flex flex-wrap items-center justify-center gap-1 text-xs text-muted-foreground">
+                      No clusters for {playerName} in this filter.
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto px-1 py-0 text-xs"
+                        onClick={() => update({ player: null })}
+                      >
+                        All players
+                      </Button>
+                    </p>
+                  )}
                   {isEmpty && (
                     <div className="absolute inset-0 grid place-items-center bg-map-surface/80 p-6 text-center">
                       <div className="max-w-sm space-y-3">
@@ -290,6 +323,11 @@ export function Dashboard() {
                 </>
               )}
             </div>
+            {playerName && (
+              <p className="text-xs text-muted-foreground">
+                Heat shows the whole team; clusters show {playerName}&apos;s (≥ 20 % of casts).
+              </p>
+            )}
             {derived && <MapLegend colors={derived.colors} clusters={derived.clusters} heatMax={derived.heat.max} />}
           </main>
 

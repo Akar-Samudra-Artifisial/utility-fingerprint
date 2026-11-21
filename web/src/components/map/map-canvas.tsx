@@ -49,11 +49,11 @@ function defaultClusterLabel(c: ClusterView): string {
 const HEAT_RES_STEP = 128; // heat canvas follows device pixels, bucketed to limit re-renders
 const HEAT_RES_MAX = 2048;
 const TOOLTIP_W = 240;
-const TOOLTIP_H = 170;
+const TOOLTIP_H = 240;
 const LABEL_LIMIT = 10; // share labels drawn for the N largest clusters (+ hovered/focused)
 const MIN_HIT_PX = 10;
 
-type Img = { src: string; el: HTMLImageElement | null; failed: boolean };
+type Img = { key: string; src: string; el: HTMLImageElement | null; failed: boolean };
 
 /** Accumulate radial blobs for cells where sign·value > 0; returns the alpha intensity image. */
 function paintBlobs(
@@ -224,7 +224,7 @@ export function MapCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState(0);
   const [heatRes, setHeatRes] = useState(0);
-  const [img, setImg] = useState<Img>({ src: "", el: null, failed: false });
+  const [img, setImg] = useState<Img>({ key: "", src: "", el: null, failed: false });
   const [hoverId, setHoverId] = useState<string | null>(null);
   const pendingPointer = useRef<{ x: number; y: number } | null>(null);
   const rafId = useRef<number | null>(null);
@@ -248,20 +248,34 @@ export function MapCanvas({
   }, []);
 
   // Minimap image (cross-origin; only drawn, never read back, so no CORS needed).
+  const imageKey = `${map.display_icon_local ?? ""}\u0000${map.display_icon}`;
   useEffect(() => {
     let cancelled = false;
     const el = new Image();
     el.decoding = "async";
-    el.onload = () => !cancelled && setImg({ src: map.display_icon, el, failed: false });
-    el.onerror = () => !cancelled && setImg({ src: map.display_icon, el: null, failed: true });
-    el.src = map.display_icon;
+    const load = (src: string) => {
+      el.onload = () => !cancelled && setImg({ key: imageKey, src, el, failed: false });
+      el.onerror = () => {
+        if (cancelled) return;
+        if (src !== map.display_icon) {
+          load(map.display_icon);
+          return;
+        }
+        setImg({ key: imageKey, src, el: null, failed: true });
+      };
+      el.src = src;
+    };
+    const local = map.display_icon_local;
+    load(local && local !== map.display_icon ? local : map.display_icon);
     return () => {
       cancelled = true;
     };
-  }, [map.display_icon]);
+  }, [imageKey, map.display_icon, map.display_icon_local]);
 
-  const imgReady = img.src === map.display_icon && img.el !== null;
-  const imgFailed = img.src === map.display_icon && img.failed;
+  const imgReady =
+    img.key === imageKey && (img.src === map.display_icon_local || img.src === map.display_icon) && img.el !== null;
+  const imgFailed =
+    img.key === imageKey && (img.src === map.display_icon_local || img.src === map.display_icon) && img.failed;
 
   const heatCanvas = useMemo(
     () => {

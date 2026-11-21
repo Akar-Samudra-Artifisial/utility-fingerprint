@@ -82,7 +82,7 @@ export function KeyInsights({ id, insights, className }: { id: string; insights:
       <h3 id={id} className="sr-only">
         Key insights
       </h3>
-      <ul className="grid gap-2 sm:grid-cols-3">
+      <ul className={`grid gap-2 sm:grid-cols-3${insights.length === 4 ? " lg:grid-cols-4" : ""}`}>
         {insights.map((i) => (
           <InsightCard key={i.key} insight={i} />
         ))}

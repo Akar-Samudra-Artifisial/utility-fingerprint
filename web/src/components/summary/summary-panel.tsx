@@ -4,9 +4,12 @@ import { plantTendency, type ClusterView } from "@/lib/data/select";
 import type { MapMeta, Side, TeamMapStats } from "@/lib/data/types";
 import { Section } from "@/components/ui/section-header";
 import { StatCard } from "@/components/ui/stat-card";
+import { LowSampleBadge } from "@/components/ui/low-sample-badge";
 import { SIDE_COLOR, SIDE_TEXT_CLASS, SITE_SHADES } from "@/lib/colors";
 import { LOW_SAMPLE_GAMES } from "@/lib/data/compare";
+import { viewWinRate } from "@/lib/data/select";
 import { abilityName, agentName, PHASE_LABEL, pct, roundClock, SIDE_LABEL } from "@/lib/format";
+import { formatDeltaPp } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
 interface SummaryPanelProps {
@@ -112,32 +115,73 @@ export function SummaryPanel({ stats, map, side, signatures, colors, focusId, on
             {signatures.map((s, i) => {
               const active = s.id === focusId;
               const color = colors.get(s.agent) ?? "#fff";
+              const winRate = viewWinRate(stats, s);
               return (
                 <li key={s.id}>
-                  <button
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => onFocus(active ? null : s.id)}
+                  <div
                     className={cn(
-                      "group flex w-full items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      "relative flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:bg-accent",
                       active && "border-primary bg-accent",
                     )}
                     style={{ boxShadow: `inset 3px 0 0 ${color}` }}
                   >
-                    <span className="w-4 font-mono text-xs text-muted-foreground tabular-nums">{i + 1}</span>
-                    <span className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      aria-pressed={active}
+                      aria-label={`${active ? "Clear highlight of" : "Highlight"} ${abilityName(s.ability)} cluster`}
+                      onClick={() => onFocus(active ? null : s.id)}
+                      className="absolute inset-0 z-0 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    />
+                    <span className="pointer-events-none relative z-10 w-4 font-mono text-xs text-muted-foreground tabular-nums">
+                      {i + 1}
+                    </span>
+                    <span className="pointer-events-none relative z-10 min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{abilityName(s.ability)}</span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {agentName(s.agent)} · {PHASE_LABEL[s.phase]} · {avgLabel(s.cluster.mean_t_round_ms)}
                       </span>
+                      {winRate.kind === "count" && (
+                        <span className="block truncate text-xs text-muted-foreground">{winRate.rounds} rounds</span>
+                      )}
+                      {winRate.kind === "low" && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          Win {pct(winRate.rate)} · {winRate.rounds} rounds
+                          {winRate.baselineUnavailable && " · baseline unavailable"}
+                        </span>
+                      )}
+                      {winRate.kind === "full" && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          Win {pct(winRate.rate)} in {winRate.rounds} rounds ·{" "}
+                          <span
+                            className={
+                              winRate.significant
+                                ? winRate.deltaPp > 0
+                                  ? "text-attack"
+                                  : "text-defense"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {formatDeltaPp(winRate.deltaPp)}
+                          </span>
+                          {!winRate.significant && " · within noise"}
+                        </span>
+                      )}
                     </span>
-                    <span className="text-right">
+                    <span className="pointer-events-none relative z-10 text-right">
                       <span className="block font-mono text-sm font-semibold tabular-nums">{pct(s.cluster.share)}</span>
                       <span className="block font-mono text-xs text-muted-foreground tabular-nums">
                         {s.cluster.count} casts
                       </span>
                     </span>
-                  </button>
+                    {winRate.kind === "low" && !winRate.baselineUnavailable && (
+                      <span className="relative z-10 shrink-0">
+                        <LowSampleBadge
+                          reason={`Only ${winRate.rounds} rounds with this cluster (fewer than 20); interval is wide.`}
+                          className="text-[0.65rem]"
+                        />
+                      </span>
+                    )}
+                  </div>
                 </li>
               );
             })}
@@ -145,7 +189,9 @@ export function SummaryPanel({ stats, map, side, signatures, colors, focusId, on
         )}
         <p className="text-xs leading-snug text-muted-foreground">
           Share = fraction of that ability&apos;s casts (same side and phase) made from inside the cluster.
-          Positions are where the caster stood, not where the utility landed.
+          Positions are where the caster stood, not where the utility landed. Win rate in rounds when used = rounds
+          won when the cluster was used; baseline = all rounds with utility on this side and phase. Correlation, not
+          cause.
         </p>
       </Section>
     </div>

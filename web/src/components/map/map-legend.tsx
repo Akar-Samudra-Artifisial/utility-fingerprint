@@ -35,6 +35,11 @@ export function MapLegend({ colors, clusters, heatMax }: MapLegendProps) {
           dashed = fewer than 5 casts. Arrow = average aim; dashed when aim varies. Positions between tracking frames
           are interpolated, so treat small clusters as estimates.
         </p>
+        <p>
+          Win rate in rounds when used is compared with all rounds where utility was used on the same side and phase,
+          using a Wilson 95% interval. Fewer than 10 rounds shows no rate; 10–19 is low sample; a delta is coloured
+          only when the interval excludes the baseline—correlation, not cause.
+        </p>
       </LegendHelp>
     </div>
   );

@@ -31,6 +31,8 @@ export interface MapMeta {
   name: string;
   display_name: string;
   display_icon: string;
+  /** Locally hosted minimap image; falls back to `display_icon` when unavailable. */
+  display_icon_local?: string;
   games: number;
   coefficients: MapCoefficients;
   formula: string;
@@ -71,6 +73,12 @@ export interface Cluster extends UV {
   count: number;
   /** Fraction of the ability's casts (in this side/phase) that fall in this cluster. */
   share: number;
+  /** Distinct rounds with this cluster; the denominator for this cluster's win rate. */
+  rounds?: number;
+  /** Rounds won among `rounds` when this cluster was used. */
+  wins?: number;
+  /** Player IDs and their share of casts in this cluster (denominator: all cluster casts). */
+  players?: [playerId: string, share: number][];
   /** Mean aim direction as a unit vector in minimap u/v space (already axis-swapped). */
   view?: [du: number, dv: number];
   /** Length of the mean aim vector, 0..1 (1 = everyone aims the same way). */
@@ -94,6 +102,14 @@ export interface AbilityMeta {
 
 export type UtilityByPhase = Partial<Record<Phase, Record<string, AbilityStats>>>;
 
+/** Team round outcomes for a side and phase, among rounds where any utility was used. */
+export interface RoundRecord {
+  /** Rounds with any utility used on this side in this phase; denominator for the win rate. */
+  rounds: number;
+  /** Rounds won among `rounds` with any utility used on this side in this phase. */
+  wins: number;
+}
+
 export interface TeamMapStats {
   games: number;
   wins: number;
@@ -104,6 +120,8 @@ export interface TeamMapStats {
   plant_site_share: Record<string, number>;
   abilities: Record<string, AbilityMeta>;
   utility: Partial<Record<Side, UtilityByPhase>>;
+  /** Baseline outcomes; denominator is rounds with any utility on the same side and phase. */
+  phase_rounds?: Partial<Record<Side, Partial<Record<Phase, RoundRecord>>>>;
 }
 
 /** Team-level heat on a coarser 24×24 grid (Operator kills are too sparse for 48×48). */
@@ -235,6 +253,8 @@ export interface TeamFile {
   team: TeamSummary;
   maps: Record<string, TeamMapStats>;
   operator: OperatorBlock;
+  /** Optional lookup from player ID to display name for cluster player shares. */
+  players?: Record<string, string>;
   generated_at: string;
   definitions: Definitions;
 }
