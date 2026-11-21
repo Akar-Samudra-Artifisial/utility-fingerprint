@@ -96,4 +96,4 @@ canvas, claude, anthropic-api, claude-code, valorant-api, grid, webstorm, junie
 
 - Repository: https://github.com/Akar-Samudra-Artifisial/utility-fingerprint
 - Demo: https://utility-fingerprint.vercel.app
-- Video: TODO: video link (YouTube)
+- Video: https://youtu.be/4EmkPM3K4xM

@@ -135,8 +135,8 @@ fact sheet, prompt, schema, validator version and model.
 ```bash
 cd etl
 ANTHROPIC_API_KEY=... uv run python -m utility_fingerprint_etl report --teams 79,3429  # key for this command only
-uv run python -m utility_fingerprint_etl report --top 20          # Cloud9, Cloud9 GC, then teams with most games
-uv run python -m utility_fingerprint_etl report --top 20 --check  # re-validate written reports, detect stale facts
+uv run python -m utility_fingerprint_etl report --top 50          # Cloud9, Cloud9 GC, then teams with most games
+uv run python -m utility_fingerprint_etl report --top 50 --check  # re-validate written reports, detect stale facts
 ```
 
 Without `ANTHROPIC_API_KEY` the command uses the Claude Code CLI (`claude -p`, isolated: no tools, no MCP, no
